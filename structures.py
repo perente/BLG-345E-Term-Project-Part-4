@@ -1,8 +1,8 @@
-class StateSolver:
+class State:
     """
 
     KESIN DEGIL STATE ICINE DEFINE EDECEGIMIZ SEYLERE GORE DEGISECEK BURA 
-    
+
     Global SAT durumu.
     Project 4 açısından:
       - clauses: CNF formülü
@@ -15,25 +15,26 @@ class StateSolver:
         self.clauses = clauses
         self.num_vars = num_vars
 
-        # 1..num_vars için: None / True / False
+        # Initially assign None to all variables in range 1-num_vars
         self.assignments = [None] * (num_vars + 1)
-        # her değişkenin decision level'ı
+        # At which decision level a variable assigned with value, initially zero
         self.levels = [0] * (num_vars + 1)
 
-        # Atamaların "sırasını" tutan stack (trail)
-        # Her eleman: (var_id, decision_level)
+        # All assignment logs will be held there in format: (var_id, decision_level)
         self.trail = []
 
         # İleride P3/P5 için istersen:
         # self.trace = []
 
-    def assign(self, var_id: int, value: bool, dl: int):
+    def assign(self, var_id, value, dl):
+        """ 
+        Assign a value to the related variable at the given decision level
         """
-        Bir değişkeni (var_id) verilen decision level'da ata.
-        DPLL her dalda bunu kullanacak.
-        """
+        # Value assignment
         self.assignments[var_id] = value
+        # The decision level when the value assigned
         self.levels[var_id] = dl
+        # Add to logs
         self.trail.append((var_id, dl))
 
 

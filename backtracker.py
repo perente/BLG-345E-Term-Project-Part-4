@@ -1,17 +1,24 @@
-def undo_level(state, target_dl: int):
+def undo_level(state, target_dl):
     """
-    Verilen decision level'da (ve üstünde) yapılan tüm atamaları geri alır.
+    Undo all assignments made at the target decision level and above
 
-    Örneğin target_dl = 2 ise:
-      - DL=2'de yapılan tüm karar ve propagasyon atamaları UNASSIGNED yapılır.
-      - Daha düşük level'lardaki (0,1) atamalar korunur.
+    All variables at the mentioned levels will be assigned to None
+    The variables at lower levels will stay same
     """
-    while state.trail and state.trail[-1][1] >= target_dl:
-        var_id, dl = state.trail.pop()
+    while state.trail:
 
-        # Bu değişkeni geri al (UNASSIGNED yap)
+        var_id, last_dl = state.trail[-1]
+
+        # If we have backtracked the target level, exit from the loop
+        if last_dl < target_dl:
+            break 
+
+        # Remove from trail (stack)
+        state.trail.pop()
+
+        # Remove the assigned value by making it None
         state.assignments[var_id] = None
+
+        # Make its decision level zero
         state.levels[var_id] = 0
 
-        # İstersen trace'e log ekleyebilirsin:
-        # state.trace.append(f"[DL{dl}] UNASSIGN var={var_id}")
