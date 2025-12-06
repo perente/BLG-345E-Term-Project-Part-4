@@ -8,6 +8,32 @@ import structures               # Data & Heuristics (Person 2)
 import io_manager               # I/O & Integration (Person 3)
 import backtracker              # Backtracking (Person 5)
 
+def dpll_solve(state):
+    """
+    Main function of Search Engine
+
+    Parameters
+    ----------
+    state : object
+        Tüm SAT durumunu tutan veri yapısı (structures modülünde tanımlanacak).
+
+    Returns
+    -------
+    bool
+        True  -> formül SAT (bir model bulundu)
+        False -> formül UNSAT (hiçbir atama tüm formülü sağlayamıyor)
+    """
+    dl_zero = 0
+    result = dpll_solver(state, dl_zero)
+
+    # GPT YAZDI BU COMMENTLER SILINECEk
+    # İsteğe bağlı: Kök seviyede UNSAT durumunda bütün atamaları temizlemek için
+    # backtracker.undo_level(state, dl_zero) çağrısı ekleyebilirsin.
+    # (Person 5 ile konuşup, DL=0 için nasıl davranmak istediklerine göre karar verirsiniz.)
+
+    return result
+
+
 def dpll_solver(state, decision_level):
     """
     Recursive DPLL function
