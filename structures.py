@@ -1,3 +1,16 @@
+from dataclasses import dataclass
+from typing import List, Optional
+
+@dataclass
+class Clause:
+    """
+    CNF clause representation.
+    - id: Clause ID for tracking
+    - literals: List of integers representing literals (positive for true, negative for false)
+    """
+    id: int
+    literals: List[int]
+
 class State:
     """
 
@@ -48,3 +61,37 @@ def pick_branching_variable(state):
         if state.assignments[var] is None:
             return var
     return None  # hiç unassigned kalmadıysa
+
+def load_initial_cnf(path: str) -> State:
+    """
+    DIMACS CNF parser - input_nf_4.cnf formatına göre okur ve State objesi döner.
+    """
+
+    clauses = []
+    num_vars = None
+    num_clauses = None
+    cid = 1
+
+    with open(path, "r", encoding = "utf-8") as f:
+        for line in f:
+            line = line.strip() # remove leading/trailing whitespace
+            if not line or line.startswith(("c", "#")): # skip comments
+                continue
+
+            if line.startswith("p"): # problem line (e.g., "p cnf x y")
+                parts = line.split()
+                num_vars = int(parts[2]) # number of variables (x)
+                num_clauses = int(parts[3]) # number of clauses (y)
+                continue
+
+            # Parse clause
+            lits = [] 
+            for tok in line.split(): 
+                if tok == "0": # clause terminator
+                    break
+                lits.append(int(tok))
+            
+            clauses.append(Clause(cid, lits))
+            cid += 1
+
+    return State(clauses, num_vars)
