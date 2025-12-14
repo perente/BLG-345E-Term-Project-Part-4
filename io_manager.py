@@ -82,7 +82,7 @@ def read_bcp_output() -> BCPResult:
 
 def apply_bcp_result_to_state(state: State, result: BCPResult):
     """
-    P3 output state assignments -> bizim state’e uygula.
+    P3 output state assignments -> State object
     """
     for var_id, val in result.var_states.items():
         if val == "UNASSIGNED":
@@ -95,21 +95,22 @@ def apply_bcp_result_to_state(state: State, result: BCPResult):
             state.levels[var_id] = result.dl
             state.trail.append((var_id, result.dl))
         else:
-            # Genelde aynı değer olur
+            # Generally this should not happen, unless there is a conflict
             state.assignments[var_id] = new_val
 
 
 def run_inference(state: State) -> str:
     """
-    DPLL → P3 iletişiminin ana fonksiyonu.
-    1. trigger yaz
-    2. inference engine çalıştır
-    3. output’u oku
-    4. state’i güncelle
-    5. 'SAT' / 'CONFLICT' / 'CONTINUE' döndür
+    DPLL → P3 main function to run inference. 
+    Steps:
+    1. Write trigger file
+    2. Run Interference Engine (P3)
+    3. Read output
+    4. Update State
+    5. Return 'SAT' / 'CONFLICT' / 'CONTINUE'
     """
 
-    # En son atanan literal
+    # Determine trigger literal
     if state.trail:
         var_id, dl = state.trail[-1]
         val = state.assignments[var_id]
