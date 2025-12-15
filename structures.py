@@ -55,12 +55,13 @@ def pick_branching_variable(state):
     """
     MOM (Maximum Occurrences in Minimum-Sized Clauses) Heuristic
     
-    Selects the next variable to branch on using MOM heuristic:
+    Selects the next variable to branch on:
     1. Find all unsatisfied clauses
-    2. Among those, find the ones with minimum size (unassigned literals)
-    3. Count literal occurrences in those minimum clauses
-    4. Select the variable that appears most frequently
-    5. Return variable with preferred polarity
+    2. Find the minimum-sized clause among the clauses found in previous step
+    3. Identify all unsatisfied clauses with that minimum size
+    4. Count literal occurrences in minimum-size clauses
+    5. Select the variable that appears most frequently in clauses
+    6. Return variable with preferred polarity
     
     Parameters:
     -----------
@@ -69,7 +70,7 @@ def pick_branching_variable(state):
     
     Returns:
     --------
-    int or None: Variable ID to branch on (1 to num_vars), or None if all assigned
+    int/None: either returns a variable ID to branch on (1 to num_vars) or None if all clauses are assigned
     """
     
     # Geçici basit heuristic - 1..num_vars arası ilk UNASSIGNED değişkeni seç
@@ -83,30 +84,30 @@ def pick_branching_variable(state):
 
 def mom_heuristic(state):
     """
-    MOM (Maximum Occurrences in Minimum-Sized Clauses) implementation.
+    MOM implementation.
     
-    Core Algorithm:
-    1. Filter unsatisfied clauses
-    2. Find minimum-sized unsatisfied clauses (by unassigned literal count)
-    3. Count literal occurrences in those clauses
+    Fundamental Algorithm:
+    1. Find unsatisfied clauses
+    2. Find unsatisfied clauses with minimum size(using unassigned literal count)
+    3. Count literal occurrences in minimum-sized clauses
     4. Return the variable with maximum occurrence
     
     Returns:
     --------
-    int or None: Selected variable ID, or None if no unassigned variable exists
+    int/None: Either returns selected variable ID or None if no unassigned variable exists
     """
     
-    # Step 1: Find unsatisfied clauses
+    # Find unsatisfied clauses
     unsatisfied_clauses = []
     for clause in state.clauses:
         if not is_clause_satisfied(clause, state):
             unsatisfied_clauses.append(clause)
     
-    # If all clauses satisfied (SAT)
+    # If all clauses are satisfied 
     if not unsatisfied_clauses:
         return None
     
-    # Step 2: Find minimum-sized clauses (by unassigned literal count)
+    # Find unsatisfied clauses with minimum size (using unassigned literal count)
     min_size = float('inf')
     min_clauses = []
     
@@ -119,7 +120,7 @@ def mom_heuristic(state):
         elif unassigned_count == min_size:
             min_clauses.append(clause)
     
-    # Step 3: Count literal occurrences in minimum clauses
+    # Count literal occurrences in minimum-sized clauses
     literal_counts = {}
     
     for clause in min_clauses:
@@ -132,18 +133,17 @@ def mom_heuristic(state):
                     literal_counts[literal] = 0
                 literal_counts[literal] += 1
     
-    # If no unassigned literals (all variables assigned)
+    # If no unassigned literals
     if not literal_counts:
         return None
     
-    # Step 4: Select variable with maximum occurrence
-    # MOM heuristic: prioritize variables appearing most in minimum clauses
-    # When tied, prefer the polarity that appears more frequently
-    best_var = None
+    # Select variable with maximum occurrence
+    # MOM heuristic considers variables appearing most frequently in minimum clauses
+    # Prefer the polarity that appears more frequently when tied
     best_score = -1
     best_polarity_score = -1
     
-    # Track which variables we've already processed
+    # Follow which variables are already processed
     seen_vars = set()
     
     for literal in literal_counts:
@@ -160,11 +160,11 @@ def mom_heuristic(state):
         # Total MOM score
         total_score = pos_count + neg_count
         
-        # For tie-breaking: prefer whichever polarity appears more
+        # Prefer the polarity which appears more
         max_polarity = max(pos_count, neg_count)
         
         # Select variable with highest total score
-        # If tied, select the one with higher single polarity count
+        # Select the one with higher polarity count if it is tied
         if (total_score > best_score or 
             (total_score == best_score and max_polarity > best_polarity_score)):
             best_score = total_score
@@ -178,15 +178,13 @@ def is_clause_satisfied(clause, state):
     """
     Check if a clause is satisfied under current assignment.
     
-    A clause is satisfied if at least one of its literals evaluates to TRUE.
+    A clause is satisfied if at least one of its literals is TRUE.
     
     Parameters:
     -----------
-    clause : Clause
-        The clause to check
-    state : State
-        Current state with variable assignments
-    
+    clause : Clause to check   
+    state : Current state with variable assignments
+         
     Returns:
     --------
     bool: True if clause is satisfied, False otherwise
@@ -197,14 +195,14 @@ def is_clause_satisfied(clause, state):
         
         var_value = state.assignments[var_id]
         
-        # If unassigned, this literal can't satisfy the clause
+        # The literal can not satisfy the clause if not assigned
         if var_value is None:
             continue
         
         # Calculate literal value
         literal_value = var_value if is_positive else not var_value
         
-        # If any literal is TRUE, clause is satisfied
+        # Clause is satisfied if any literal is True
         if literal_value:
             return True
     
@@ -235,7 +233,7 @@ def count_unassigned_literals(clause, state):
 
 def load_initial_cnf(path: str) -> State:
     """
-    DIMACS CNF parser - input_nf_4.cnf formatına göre okur ve State objesi döner.
+    DIMACS CNF parser - input_nf_4.cnf formatına göre okur ve State objesi döner. BURAYA BAK
     """
 
     clauses = []
@@ -245,7 +243,8 @@ def load_initial_cnf(path: str) -> State:
 
     with open(path, "r", encoding = "utf-8") as f:
         for line in f:
-            line = line.strip() # remove leading/trailing whitespace
+            # remove leading or trailing whitespace
+            line = line.strip() 
             if not line or line.startswith(("c", "#")): # skip comments
                 continue
 
@@ -258,7 +257,8 @@ def load_initial_cnf(path: str) -> State:
             # Parse clause
             lits = [] 
             for tok in line.split(): 
-                if tok == "0": # clause terminator
+                # clause terminator
+                if tok == "0":
                     break
                 lits.append(int(tok))
             
