@@ -1,12 +1,8 @@
-# DPLL algoritmasının basit bir taslağını oluşturmaya çalıştım.
-# İngilizce commentler kodu açıklamak için
-# Türkçe commentler yaptığımız işleri nasıl birbirine bağlayacağımızla alakalı
-
 import sys 
 
-import structures               # Data & Heuristics (Person 2)
-import io_manager               # I/O & Integration (Person 3)
-import backtracker              # Backtracking (Person 5)
+import structures               # Data & Heuristics
+import io_manager               # I/O & Integration
+import backtracker              # Backtracking
 
 def dpll_solve(state):
     """
@@ -15,21 +11,16 @@ def dpll_solve(state):
     Parameters
     ----------
     state : object
-        Tüm SAT durumunu tutan veri yapısı (structures modülünde tanımlanacak).
+        Data structure that holds all SAT status
 
     Returns
     -------
     bool
-        True  -> formül SAT (bir model bulundu)
-        False -> formül UNSAT (hiçbir atama tüm formülü sağlayamıyor)
+        True  -> SAT
+        False -> UNSAT
     """
     dl_zero = 0
     result = dpll_solver(state, dl_zero)
-
-    # GPT YAZDI BU COMMENTLER SILINECEk
-    # İsteğe bağlı: Kök seviyede UNSAT durumunda bütün atamaları temizlemek için
-    # backtracker.undo_level(state, dl_zero) çağrısı ekleyebilirsin.
-    # (Person 5 ile konuşup, DL=0 için nasıl davranmak istediklerine göre karar verirsiniz.)
 
     return result
 
@@ -44,12 +35,12 @@ def dpll_solver(state, decision_level):
                         DL = 0  : root level
 
     Return:
-        True if SAT 
-        False if UNSAT
+        True -> SAT 
+        False -> UNSAT
     """
 
     # Calls project 3 to update state object
-    status = io_manager.run_inference(state)    # run_inference() fonksiyonu -> 3.kişiden alınacak   
+    status = io_manager.run_inference(state)       
     print(f"[DL {decision_level}] Inference Status: {status}")
 
     # Checking the status
@@ -104,5 +95,34 @@ def dpll_solver(state, decision_level):
 
     # Caller will continue to backtrack since this branch is UNSAT (leads to a conflict)
     return False
+
+# MAIN EXECUTION BLOCK
+
+if __name__ == "__main__":
+    print("--- SAT Solver Started ---")
+    
+    # Reset the Master Trace file.
+    try:
+        io_manager.initialize_master_trace()
+    except AttributeError:
+        print("Warning: 'initialize_master_trace' not found!")
+
+    # Read the initial CNF file and generate the State.
+    try:
+        initial_state = structures.load_initial_cnf("initial_cnf.txt")
+        print(f"Problem Loaded: {initial_state.num_vars} variable loaded.")
+    except FileNotFoundError:
+        print("Error: 'initial_cnf.txt' not found!")
+        sys.exit(1)
+    
+    # Start the engine
+    result = dpll_solve(initial_state)
+    
+    # Print the result on the screen.
+    if result:
+        print("\n>>> RESULT: SATISFIABLE <<<")
+        print("Final Assignments:", initial_state.assignments)
+    else:
+        print("\n>>> RESULT: UNSATISFIABLE <<<")
 
     

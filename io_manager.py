@@ -13,6 +13,7 @@ from structures import State
 
 BCP_INPUT = "bcp_input.txt"
 BCP_OUTPUT = "bcp_output.txt"
+MASTER_TRACE_FILE = "execution_trace.txt" 
 P3_COMMAND = ["python", "inference_engine.py"] # P3 runner command
 
 
@@ -24,6 +25,19 @@ class BCPResult:
     exec_log: List[str]        # execution
     var_states: Dict[int, str] # var_id -> 'TRUE', 'FALSE', 'UNASSIGNED'
 
+# Program başladığında master trace dosyasını sıfırlar (yeni oluşturur).
+def initialize_master_trace():
+    with open(MASTER_TRACE_FILE, "w") as f:
+        f.write("--- MASTER EXECUTION TRACE START ---\n")
+        
+#     P3'ten dönen logları ana trace dosyasına ekler.
+#     Mod 'a' (append) olduğu için üzerine yazmaz, sonuna ekler.
+
+def append_to_master_trace(exec_log: List[str]):
+    with open(MASTER_TRACE_FILE, "a") as f:
+        for line in exec_log:
+            f.write(line + "\n")
+        f.write("--------------------------------------------------\n")
 
 def write_bcp_trigger(trigger_lit: int, dl: int):
     """
@@ -124,6 +138,11 @@ def run_inference(state: State) -> str:
     subprocess.run(P3_COMMAND, check=True)
 
     result = read_bcp_output()
+    
+    # Okuduğumuz logları ana dosyaya kaydet
+    if result.exec_log:
+        append_to_master_trace(result.exec_log)
+
     apply_bcp_result_to_state(state, result)
 
     if result.status == "SAT":
