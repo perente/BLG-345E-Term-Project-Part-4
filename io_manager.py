@@ -8,6 +8,7 @@ from structures import State
 BCP_INPUT = "bcp_input.txt"
 BCP_OUTPUT = "bcp_output.txt"
 MASTER_TRACE_FILE = "execution_trace.txt" 
+FINAL_MODEL_FILE = "final_model.txt"
 P3_COMMAND = ["python", "inference_engine.py"] # P3-Inference Engine runner command
 
 
@@ -21,15 +22,22 @@ class BCPResult:
 
 # Initialize Master Trace File (Clear previous data)
 def initialize_master_trace():
-    with open(MASTER_TRACE_FILE, "w") as f:
-        f.write("--- MASTER EXECUTION TRACE START ---\n")
+    open(MASTER_TRACE_FILE, "w").close()
+
+    # with open(MASTER_TRACE_FILE, "w") as f:
+        # f.write("--- MASTER EXECUTION TRACE START ---\n")
 
 # Append P3-Inference Engine logs to the master trace
 def append_to_master_trace(exec_log: List[str]):
     with open(MASTER_TRACE_FILE, "a") as f:
         for line in exec_log:
             f.write(line + "\n")
-        f.write("--------------------------------------------------\n")
+        # f.write("--------------------------------------------------\n")
+
+# DECIDE format comptible with sample log
+def append_decision_to_master_trace(lit: int, dl: int):
+    with open(MASTER_TRACE_FILE, "a") as f:
+        f.write(f"[DL{dl}] DECIDE      L={lit}   |\n")
 
 # Specify the new decision assignment and current level
 def write_bcp_trigger(trigger_lit: int, dl: int):
@@ -105,7 +113,7 @@ def apply_bcp_result_to_state(state: State, result: BCPResult):
             state.assignments[var_id] = new_val
 
 
-def run_inference(state: State) -> str:
+def run_inference(state: State, current_dl: int) -> str:
     """
     Steps:
     1. Write trigger file
@@ -117,13 +125,14 @@ def run_inference(state: State) -> str:
 
     # Determine trigger literal from the most recent assignment in trail
     if state.trail:
-        var_id, dl = state.trail[-1]
+        var_id, _ = state.trail[-1]
         val = state.assignments[var_id]
         lit = var_id if val else -var_id
     else:
         # DL 0: No decision made yet, initial unit clause check
         lit = 0
-        dl = 0
+
+    dl = current_dl
 
     # Step 1
     write_bcp_trigger(lit, dl)
@@ -133,6 +142,10 @@ def run_inference(state: State) -> str:
 
     # Step 3
     result = read_bcp_output()
+    state.last_status = result.status
+    state.last_conflict_id = result.conflict_id
+    state.last_dl = result.dl
+
     if result.exec_log:
         append_to_master_trace(result.exec_log)
 
@@ -146,3 +159,18 @@ def run_inference(state: State) -> str:
     if status_raw in ("UNSAT", "CONFLICT"):
         return "CONFLICT" # Forces backtracking in search
     return "CONTINUE"
+
+def write_final_model(state, is_sat: bool):
+    with open(FINAL_MODEL_FILE, "w") as f:
+        f.write(f"STATUS: {'SAT' if is_sat else 'UNSAT'}\n")
+        f.write("\n--- FINAL VARIABLE STATE ---\n")
+        if not is_sat:
+            return
+
+        for var_id in range(1, state.num_vars + 1):
+            v = state.assignments[var_id]
+            if v is None:
+                txt = "UNASSIGNED"
+            else:
+                txt = "TRUE" if v else "FALSE"
+            f.write(f"{var_id}    | {txt}\n")

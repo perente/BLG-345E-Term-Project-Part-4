@@ -30,6 +30,9 @@ class State:
 
         # All assignment logs will be held there in format: (var_id, decision_level)
         self.trail = []
+        self.last_status = None
+        self.last_conflict_id = None
+        self.last_dl = None
 
         # For P3/P5 (arbitrary)
         # self.trace = []

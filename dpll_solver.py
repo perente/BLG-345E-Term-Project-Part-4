@@ -40,7 +40,7 @@ def dpll_solver(state, decision_level):
     """
 
     # Calls project 3 to update state object
-    status = io_manager.run_inference(state)       
+    status = io_manager.run_inference(state, decision_level)     
     print(f"[DL {decision_level}] Inference Status: {status}")
 
     # Checking the status
@@ -71,6 +71,7 @@ def dpll_solver(state, decision_level):
 
     # Try assigning TRUE value on variable at next decision level 
     print(f"[DL {decision_level}] Branching on variable {var_id} -> Try TRUE at DL {next_dl}")
+    io_manager.append_decision_to_master_trace(var_id, next_dl)
     state.assign(var_id, True, next_dl) # state objesi -> 2.kişiden alınacak
 
     # Call 'dpll_solver()' recursively for TRUE value of new variable on next level
@@ -83,6 +84,7 @@ def dpll_solver(state, decision_level):
     
     # Trying FALSE value on variable 
     print(f"[DL {decision_level}] Branching on Variable {var_id} -> Try FALSE at DL {next_dl}")
+    io_manager.append_decision_to_master_trace(-var_id, next_dl)
     state.assign(var_id, False, next_dl) # state objesi -> 2.kişiden alınacak
 
     # Call 'dpll_solver()' recursively for FALSE value of new variable on next level
@@ -122,7 +124,9 @@ if __name__ == "__main__":
     if result:
         print("\n>>> RESULT: SATISFIABLE <<<")
         print("Final Assignments:", initial_state.assignments)
+        io_manager.write_final_model(initial_state, True)
     else:
         print("\n>>> RESULT: UNSATISFIABLE <<<")
+        io_manager.write_final_model(initial_state, False)
 
     
