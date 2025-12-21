@@ -4,7 +4,7 @@ from typing import List, Optional
 @dataclass
 class Clause:
     """
-    CNF clause representation.
+    CNF clause representation
     - id: Clause ID for tracking
     - literals: List of integers representing literals (positive for true, negative for false)
     """
@@ -13,16 +13,11 @@ class Clause:
 
 class State:
     """
-
-    KESIN DEGIL STATE ICINE DEFINE EDECEGIMIZ SEYLERE GORE DEGISECEK BURA 
-
-    Global SAT durumu.
-    Project 4 açısından:
-      - clauses: CNF formülü
-      - num_vars: değişken sayısı
-      - assignments[i]: i. değişkenin değeri (True/False/None)
-      - levels[i]: i. değişken hangi decision level'da atanmış
-      - trail: atamaların sırası (backtrack için)
+    - clauses: CNF formülü
+    - num_vars: Number of variables
+    - assignments[i]: Value of ith variable (True/False/None)
+    - levels[i]: Decision level which i is assigned
+    - trail: Assignment logs
     """
     def __init__(self, clauses, num_vars):
         self.clauses = clauses
@@ -36,12 +31,12 @@ class State:
         # All assignment logs will be held there in format: (var_id, decision_level)
         self.trail = []
 
-        # İleride P3/P5 için istersen:
+        # For P3/P5 (arbitrary)
         # self.trace = []
 
     def assign(self, var_id, value, dl):
         """ 
-        Assign a value to the related variable at the given decision level
+        Assign a value to related variable and record it in trail
         """
         # Value assignment
         self.assignments[var_id] = value
@@ -50,36 +45,9 @@ class State:
         # Add to logs
         self.trail.append((var_id, dl))
 
-
+# Entry point for the decision heuristic
 def pick_branching_variable(state):
-    """
-    MOM (Maximum Occurrences in Minimum-Sized Clauses) Heuristic
     
-    Selects the next variable to branch on:
-    1. Find all unsatisfied clauses
-    2. Find the minimum-sized clause among the clauses found in previous step
-    3. Identify all unsatisfied clauses with that minimum size
-    4. Count literal occurrences in minimum-size clauses
-    5. Select the variable that appears most frequently in clauses
-    6. Return variable with preferred polarity
-    
-    Parameters:
-    -----------
-    state : State
-        Current SAT solver state with clauses and assignments
-    
-    Returns:
-    --------
-    int/None: either returns a variable ID to branch on (1 to num_vars) or None if all clauses are assigned
-    """
-    
-    # Geçici basit heuristic - 1..num_vars arası ilk UNASSIGNED değişkeni seç
-    # for var in range(1, state.num_vars + 1):
-    #     if state.assignments[var] is None:
-    #         return var
-    # return None
-    
-    # ACTIVE HEURISTIC: MOM
     return mom_heuristic(state)
 
 def mom_heuristic(state):
@@ -87,7 +55,7 @@ def mom_heuristic(state):
     MOM implementation.
     
     Fundamental Algorithm:
-    1. Find unsatisfied clauses
+    1. Find all unsatisfied clauses
     2. Find unsatisfied clauses with minimum size(using unassigned literal count)
     3. Count literal occurrences in minimum-sized clauses
     4. Return the variable with maximum occurrence
@@ -138,8 +106,8 @@ def mom_heuristic(state):
         return None
     
     # Select variable with maximum occurrence
-    # MOM heuristic considers variables appearing most frequently in minimum clauses
-    # Prefer the polarity that appears more frequently when tied
+    # Prefer polarity that appears more frequently when tied
+    best_var = None
     best_score = -1
     best_polarity_score = -1
     
@@ -176,9 +144,8 @@ def mom_heuristic(state):
 
 def is_clause_satisfied(clause, state):
     """
-    Check if a clause is satisfied under current assignment.
-    
-    A clause is satisfied if at least one of its literals is TRUE.
+    Check if a clause is satisfied under current assignment
+    A clause is satisfied if at least one of its literals is TRUE
     
     Parameters:
     -----------
@@ -187,38 +154,32 @@ def is_clause_satisfied(clause, state):
          
     Returns:
     --------
-    bool: True if clause is satisfied, False otherwise
+    bool: True if clause satisfied, False otherwise
     """
     for literal in clause.literals:
         var_id = abs(literal)
-        is_positive = (literal > 0)
-        
+
         var_value = state.assignments[var_id]
         
-        # The literal can not satisfy the clause if not assigned
+        # The literal can not satisfy clause if not assigned
         if var_value is None:
             continue
         
-        # Calculate literal value
-        literal_value = var_value if is_positive else not var_value
-        
-        # Clause is satisfied if any literal is True
-        if literal_value:
-            return True
+        # Check if current assignment matches literal's polarity
+        if (literal > 0 and var_value is True) or (literal < 0 and var_value is False):
+             return True
     
     return False
 
 
 def count_unassigned_literals(clause, state):
     """
-    Count how many literals in a clause have unassigned variables.
+    Count unassigned literals
     
     Parameters:
     -----------
-    clause : Clause
-        The clause to count
-    state : State
-        Current state with variable assignments
+    clause : Clause to count
+    state : Current state with variable assignments
     
     Returns:
     --------
@@ -231,33 +192,31 @@ def count_unassigned_literals(clause, state):
             count += 1
     return count
 
+# Parse DIMACS CNF file and return State
 def load_initial_cnf(path: str) -> State:
-    """
-    DIMACS CNF parser - input_nf_4.cnf formatına göre okur ve State objesi döner. BURAYA BAK
-    """
-
     clauses = []
     num_vars = None
     num_clauses = None
     cid = 1
 
-    with open(path, "r", encoding = "utf-8") as f:
+    with open(path, "r", encoding ="utf-8") as f:
         for line in f:
-            # remove leading or trailing whitespace
+            # Remove leading or trailing whitespace
             line = line.strip() 
-            if not line or line.startswith(("c", "#")): # skip comments
+            if not line or line.startswith(("c", "#")): # Skip comments
                 continue
 
-            if line.startswith("p"): # problem line (e.g., "p cnf x y")
+            # # Parse the header: p cnf x y
+            if line.startswith("p"): 
                 parts = line.split()
                 num_vars = int(parts[2]) # number of variables (x)
                 num_clauses = int(parts[3]) # number of clauses (y)
                 continue
 
-            # Parse clause
+            # Parse clause and stop at clause terminator used in DIMACS
             lits = [] 
             for tok in line.split(): 
-                # clause terminator
+                # Clause terminator
                 if tok == "0":
                     break
                 lits.append(int(tok))

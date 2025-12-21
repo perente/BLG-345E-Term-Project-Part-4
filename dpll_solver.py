@@ -101,13 +101,13 @@ def dpll_solver(state, decision_level):
 if __name__ == "__main__":
     print("--- SAT Solver Started ---")
     
-    # Reset the Master Trace file.
+    # Reset Master Trace file.
     try:
         io_manager.initialize_master_trace()
     except AttributeError:
         print("Warning: 'initialize_master_trace' not found!")
 
-    # Read the initial CNF file and generate the State.
+    # Read initial CNF file and generate the State
     try:
         initial_state = structures.load_initial_cnf("initial_cnf.txt")
         print(f"Problem Loaded: {initial_state.num_vars} variable loaded.")
@@ -118,7 +118,7 @@ if __name__ == "__main__":
     # Start the engine
     result = dpll_solve(initial_state)
     
-    # Print the result on the screen.
+    # Print result
     if result:
         print("\n>>> RESULT: SATISFIABLE <<<")
         print("Final Assignments:", initial_state.assignments)
