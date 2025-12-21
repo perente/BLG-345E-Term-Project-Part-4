@@ -109,8 +109,13 @@ def apply_bcp_result_to_state(state: State, result: BCPResult):
             state.levels[var_id] = result.dl
             state.trail.append((var_id, result.dl))
         else:
+            # GPT BOYLE OLMASI GEREKTIGINI SAVUNUYO BURAYA BAKILCAK
+            if state.assignments[var_id] != new_val:
+                continue
+
+            # ESKI HALI
             # Update state if already assigned
-            state.assignments[var_id] = new_val
+            # state.assignments[var_id] = new_val
 
 
 def run_inference(state: State, current_dl: int) -> str:
