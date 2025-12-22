@@ -1,0 +1,20 @@
+--- STATUS ---
+STATUS: SAT
+DL: 4
+CONFLICT_ID: None
+--- BCP EXECUTION LOG ---
+[DL4] UNIT      L=9    | C5
+[DL4] ASSIGN    L=9    |
+[DL4] UNIT      L=-5    | C10
+[DL4] ASSIGN    L=-5    |
+--- CURRENT VARIABLE STATE ---
+1 | TRUE
+2 | TRUE
+3 | FALSE
+4 | FALSE
+5 | FALSE
+6 | TRUE
+7 | FALSE
+8 | TRUE
+9 | TRUE
+10 | TRUE

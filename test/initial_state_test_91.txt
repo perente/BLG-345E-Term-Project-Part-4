@@ -1,0 +1,13 @@
+--- HEADER AND METADATA ---
+V: 3
+C: 3
+
+--- VARIABLE ASSIGNMENTS ---
+1    | TRUE
+2    | FALSE
+3    | UNASSIGNED
+
+--- CLAUSE LIST ---
+C1    | [1, 2, 3]     | [0, 1]
+C2    | [-1, -2]     | [0, 1]
+C3    | [-3]     | [0, 1]

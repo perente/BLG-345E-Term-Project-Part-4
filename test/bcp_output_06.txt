@@ -1,0 +1,26 @@
+--- STATUS ---
+STATUS: SAT
+DL: 3
+CONFLICT_ID: None
+--- BCP EXECUTION LOG ---
+[DL3] UNIT      L=-1    | C1
+[DL3] ASSIGN    L=-1    |
+[DL3] UNIT      L=3    | C4
+[DL3] ASSIGN    L=3    |
+[DL3] UNIT      L=-10    | C5
+[DL3] ASSIGN    L=-10    |
+[DL3] UNIT      L=-8    | C13
+[DL3] ASSIGN    L=-8    |
+[DL3] UNIT      L=-7    | C18
+[DL3] ASSIGN    L=-7    |
+--- CURRENT VARIABLE STATE ---
+1 | FALSE
+2 | TRUE
+3 | TRUE
+4 | TRUE
+5 | TRUE
+6 | TRUE
+7 | FALSE
+8 | FALSE
+9 | TRUE
+10 | FALSE

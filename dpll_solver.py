@@ -1,4 +1,5 @@
-import sys 
+import sys
+import os 
 
 import structures               # Data & Heuristics
 import io_manager               # I/O & Integration
@@ -101,6 +102,17 @@ def dpll_solver(state, decision_level):
 # MAIN EXECUTION BLOCK
 
 if __name__ == "__main__":
+    # Check for command line argument (Test ID)
+    if len(sys.argv) > 1:
+        arg = sys.argv[1]
+        # logic to handle test id
+        if arg.isdigit():
+             test_id = int(arg)
+             print(f"--- Setup Test Case {test_id} ---")
+             io_manager.setup_test_case(test_id)
+        else:
+             print(f"Warning: Argument '{arg}' is not a valid integer Test ID. Ignoring...")
+
     print("--- SAT Solver Started ---")
     
     # Reset Master Trace file.
@@ -111,10 +123,14 @@ if __name__ == "__main__":
 
     # Read initial CNF file and generate the State
     try:
-        initial_state = structures.load_initial_cnf("initial_cnf.txt")
+        if os.path.exists("initial_state.txt"):
+             print("Loading from custom test file: initial_state.txt")
+             initial_state = io_manager.load_test_state("initial_state.txt")
+        else:
+             initial_state = structures.load_initial_cnf("initial_cnf.txt")
         print(f"Problem Loaded: {initial_state.num_vars} variable loaded.")
     except FileNotFoundError:
-        print("Error: 'initial_cnf.txt' not found!")
+        print("Error: 'initial_state.txt' or 'initial_cnf.txt' not found!")
         sys.exit(1)
     
     # Start the engine

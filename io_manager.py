@@ -1,15 +1,17 @@
-import subprocess
+
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 
-from structures import State
+import shutil
+import os
+from structures import State, Clause
 
 
 BCP_INPUT = "bcp_input.txt"
 BCP_OUTPUT = "bcp_output.txt"
 MASTER_TRACE_FILE = "execution_trace.txt" 
 FINAL_MODEL_FILE = "final_model.txt"
-P3_COMMAND = ["python", "inference_engine.py"] # P3-Inference Engine runner command
+
 
 
 @dataclass
@@ -20,7 +22,101 @@ class BCPResult:
     exec_log: List[str]        # Execution log for traces
     var_states: Dict[int, str] # Current assignment state for each variable ('TRUE', 'FALSE', 'UNASSIGNED')
 
-# Initialize Master Trace File (Clear previous data)
+
+def setup_test_case(test_id: int):
+    """
+    Copies test files to the root directory for the given test_id.
+    """
+    test_dir = "test"
+    test_id_str = f"{test_id:02d}"
+    
+    # Define source paths
+    src_initial = os.path.join(test_dir, f"initial_state_test_{test_id_str}.txt")
+    src_bcp_out = os.path.join(test_dir, f"bcp_output_{test_id_str}.txt")
+    src_bcp_in = os.path.join(test_dir, f"bcp_input_{test_id_str}.txt")
+    
+    # Define dest paths
+    dst_initial = "initial_state.txt"
+    dst_bcp_out = BCP_OUTPUT
+    dst_bcp_in = BCP_INPUT
+    
+    # Copy files
+    if os.path.exists(src_initial):
+        shutil.copy(src_initial, dst_initial)
+        print(f"Copied {src_initial} to {dst_initial}")
+    else:
+        print(f"Warning: {src_initial} not found.")
+
+    if os.path.exists(src_bcp_out):
+        shutil.copy(src_bcp_out, dst_bcp_out)
+        print(f"Copied {src_bcp_out} to {dst_bcp_out}")
+    else:
+        print(f"Warning: {src_bcp_out} not found.")
+
+def load_test_state(path: str) -> State:
+    """
+    Parses the custom initial_state_test file format.
+    """
+    num_vars = 0
+    clauses = []
+    assignments = {}
+    
+    section = None
+    
+    with open(path, "r") as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("---"):
+                if "VARIABLE ASSIGNMENTS" in line:
+                    section = "VARS"
+                elif "CLAUSE LIST" in line:
+                    section = "CLAUSES"
+                elif "HEADER" in line:
+                    section = "HEADER"
+                else:
+                    section = None
+                continue
+            
+            if section == "HEADER":
+                if line.startswith("V:"):
+                    num_vars = int(line.split(":")[1].strip())
+            
+            elif section == "VARS":
+                # Format: 1    | UNASSIGNED  or  2    | TRUE
+                parts = line.split("|")
+                if len(parts) >= 2:
+                    try:
+                        var_id = int(parts[0].strip())
+                        val_str = parts[1].strip()
+                        if val_str == "TRUE":
+                            assignments[var_id] = True
+                        elif val_str == "FALSE":
+                            assignments[var_id] = False
+                    except ValueError:
+                        pass
+
+            elif section == "CLAUSES":
+                # Format: C1    | [-7, -2, -10]     | [0, 1]
+                parts = line.split("|")
+                if len(parts) >= 2:
+                    # Parse literals: [-7, -2, -10]
+                    lits_str = parts[1].strip()
+                    lits_str = lits_str.strip("[]")
+                    if lits_str:
+                        lits = [int(x.strip()) for x in lits_str.split(",")]
+                        cid_str = parts[0].strip()[1:] # Remove 'C'
+                        cid = int(cid_str)
+                        clauses.append(Clause(cid, lits))
+    
+    state = State(clauses, num_vars)
+    
+    # Apply loaded assignments
+    for var_id, val in assignments.items():
+        state.assign(var_id, val, 0)
+        
+    return state
+
+# Initialize Master Trace File
 def initialize_master_trace():
     open(MASTER_TRACE_FILE, "w").close()
 
@@ -109,13 +205,8 @@ def apply_bcp_result_to_state(state: State, result: BCPResult):
             state.levels[var_id] = result.dl
             state.trail.append((var_id, result.dl))
         else:
-            # GPT BOYLE OLMASI GEREKTIGINI SAVUNUYO BURAYA BAKILCAK
             if state.assignments[var_id] != new_val:
                 continue
-
-            # ESKI HALI
-            # Update state if already assigned
-            # state.assignments[var_id] = new_val
 
 
 def run_inference(state: State, current_dl: int) -> str:
@@ -141,9 +232,7 @@ def run_inference(state: State, current_dl: int) -> str:
 
     # Step 1
     write_bcp_trigger(lit, dl)
-
-    # Step 2
-    subprocess.run(P3_COMMAND, check=True)
+    pass
 
     # Step 3
     result = read_bcp_output()

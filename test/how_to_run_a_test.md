@@ -2,32 +2,38 @@
 
 This guide explains how to run the generated SAT solver tests.
 
-## Running a Specific Test
-The solver always reads the problem from `initial_cnf.txt` in the root directory. To run a test from the `test/` folder, you must first copy it to the root.
+## Option 1: Run Direct Test
 
+You can run any test case directly by passing the Test ID to the solver script.
 
-1. **Copy the test input:**
-   ```powershell
-   copy "test\input_cnf_test_*.cnf" "initial_cnf.txt"
-   ```
-
-2. **Run the Solver:**
-   ```powershell
-   python dpll_solver.py
-   ```
-
-3. **Check Output:**
-   The solver will print `SATISFIABLE` or `UNSATISFIABLE`.
-
-## Batch Execution
-If you want to run all tests sequentially, you can use a loop in PowerShell:
+Example to run Test 11:
 
 ```powershell
-dir test\input_cnf_test_*.cnf | ForEach-Object {
-    $name = $_.Name
-    Write-Host "Running $name..."
-    copy "test\$name" "initial_cnf.txt"
-    python dpll_solver.py
-    Write-Host "--------------------------------"
-}
+python dpll_solver.py 11
 ```
+
+This will automatically:
+1.  Copy `test/initial_state_test_11.txt` -> `initial_state.txt`
+2.  Copy `test/bcp_output_11.txt` -> `bcp_output.txt`
+3.  Run the solver.
+
+Available tests: `01` to `11`, plus custom tests `90`, `91`, `92`, `93`, `99`.
+
+## Option 2: Manual Execution
+
+If you prefer to copy files manually without any scripts:
+
+1.  **Copy the initial state:**
+    ```powershell
+    copy "test\initial_state_test_11.txt" "initial_state.txt"
+    ```
+
+2.  **Copy the BCP output (mock):**
+    ```powershell
+    copy "test\bcp_output_11.txt" "bcp_output.txt"
+    ```
+
+3.  **Run the Solver:**
+    ```powershell
+    python dpll_solver.py
+    ```
