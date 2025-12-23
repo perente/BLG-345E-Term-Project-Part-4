@@ -1,270 +1,346 @@
+"""
+io_manager.py - DPLL SAT Solver Input/Output Manager
 
-from dataclasses import dataclass
-from typing import Dict, List, Optional
+Bu modul tum dosya tabanli iletisimi yonetir:
+- Project #3'e BCP trigger dosyalari yazma
+- Project #3'ten BCP output dosyalari okuma
+- Project #5 icin master trace ve final model yazma
 
-import shutil
+Tum dosya yollari inline olarak ayarlanir (ayri config.py yok).
+Tum output dosyalari mevcut calisma dizinine yazilir.
+"""
+
 import os
-from structures import State, Clause
+from typing import Dict, List, Optional
+from dataclasses import dataclass
+
+# ==============================================================================
+# DOSYA YOLU KONFIGURASYONU (Inline - config.py yok)
+# ==============================================================================
+
+# Base dizin: bu dosyanin bulundugu dizin
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Input dosyalari (okudugumuz dosyalar)
+BCP_OUTPUT_FILE = os.path.join(BASE_DIR, "bcp_output.txt")
+INITIAL_STATE_FILE = os.path.join(BASE_DIR, "initial_state.txt")
+INPUT_CNF_FILE = os.path.join(BASE_DIR, "input.cnf")
+
+# Output dosyalari (yazdigimiz dosyalar) - tumu mevcut dizinde
+BCP_INPUT_FILE = os.path.join(BASE_DIR, "bcp_input.txt")  # P3'e trigger dosyasi
+MASTER_TRACE_FILE = os.path.join(BASE_DIR, "master_trace.txt")
+FINAL_MODEL_FILE = os.path.join(BASE_DIR, "final_model.txt")
+
+# Status sabitleri
+STATUS_SAT = "SAT"
+STATUS_UNSAT = "UNSAT"
+STATUS_CONFLICT = "CONFLICT"
+STATUS_CONTINUE = "CONTINUE"
 
 
-BCP_INPUT = "bcp_input.txt"
-BCP_OUTPUT = "bcp_output.txt"
-MASTER_TRACE_FILE = "execution_trace.txt" 
-FINAL_MODEL_FILE = "final_model.txt"
-
-
+# ==============================================================================
+# VERI SINIFLARI
+# ==============================================================================
 
 @dataclass
 class BCPResult:
-    status: str                # 'SAT', 'UNSAT', 'CONFLICT', 'CONTINUE'
-    dl: int                    # Decision level after BCP
-    conflict_id: Optional[int] # Conflict clause ID if any
-    exec_log: List[str]        # Execution log for traces
-    var_states: Dict[int, str] # Current assignment state for each variable ('TRUE', 'FALSE', 'UNASSIGNED')
-
-
-def setup_test_case(test_id: int):
     """
-    Copies test files to the root directory for the given test_id.
+    BCP (Boolean Constraint Propagation) calismasinin sonucu.
+    
+    Attributes:
+        status: 'SAT', 'CONTINUE', 'CONFLICT', 'UNSAT' degerlerinden biri
+        dl: BCP sonrasi decision level
+        conflict_id: Conflict clause ID (status CONFLICT ise)
+        exec_log: Master trace icin raw execution log satirlari
+        assignments: Degisken ID -> True/False eslemesi
+        unassigned_vars: Hala atanmamis degisken ID'lerinin listesi
+        full_log: Tum raw log icerigi
     """
-    test_dir = "test"
-    test_id_str = f"{test_id:02d}"
-    
-    # Define source paths
-    src_initial = os.path.join(test_dir, f"initial_state_test_{test_id_str}.txt")
-    src_bcp_out = os.path.join(test_dir, f"bcp_output_{test_id_str}.txt")
-    src_bcp_in = os.path.join(test_dir, f"bcp_input_{test_id_str}.txt")
-    
-    # Define dest paths
-    dst_initial = "initial_state.txt"
-    dst_bcp_out = BCP_OUTPUT
-    dst_bcp_in = BCP_INPUT
-    
-    # Copy files
-    if os.path.exists(src_initial):
-        shutil.copy(src_initial, dst_initial)
-        print(f"Copied {src_initial} to {dst_initial}")
-    else:
-        print(f"Warning: {src_initial} not found.")
+    status: str
+    dl: int
+    conflict_id: Optional[int]
+    exec_log: List[str]
+    assignments: Dict[int, bool]
+    unassigned_vars: List[int]
+    full_log: str
 
-    if os.path.exists(src_bcp_out):
-        shutil.copy(src_bcp_out, dst_bcp_out)
-        print(f"Copied {src_bcp_out} to {dst_bcp_out}")
-    else:
-        print(f"Warning: {src_bcp_out} not found.")
 
-def load_test_state(path: str) -> State:
+# ==============================================================================
+# IO MANAGER SINIFI
+# ==============================================================================
+
+class IOManager:
     """
-    Parses the custom initial_state_test file format.
+    DPLL solver icin tum dosya I/O islemlerini yonetir.
+    
+    Inference Engine ile dosyalar uzerinden iletisimi yonetir:
+    - Decision literal ve level belirten trigger input yazar
+    - Status ve degisken durumlarini iceren BCP output okur
     """
-    num_vars = 0
-    clauses = []
-    assignments = {}
     
-    section = None
+    def __init__(self):
+        """
+        IO Manager'i baslat.
+        """
+        pass
     
-    with open(path, "r") as f:
-        for line in f:
-            line = line.strip()
-            if not line or line.startswith("---"):
-                if "VARIABLE ASSIGNMENTS" in line:
-                    section = "VARS"
-                elif "CLAUSE LIST" in line:
-                    section = "CLAUSES"
-                elif "HEADER" in line:
-                    section = "HEADER"
-                else:
-                    section = None
-                continue
-            
-            if section == "HEADER":
-                if line.startswith("V:"):
-                    num_vars = int(line.split(":")[1].strip())
-            
-            elif section == "VARS":
-                # Format: 1    | UNASSIGNED  or  2    | TRUE
-                parts = line.split("|")
-                if len(parts) >= 2:
-                    try:
-                        var_id = int(parts[0].strip())
-                        val_str = parts[1].strip()
-                        if val_str == "TRUE":
-                            assignments[var_id] = True
-                        elif val_str == "FALSE":
-                            assignments[var_id] = False
-                    except ValueError:
-                        pass
-
-            elif section == "CLAUSES":
-                # Format: C1    | [-7, -2, -10]     | [0, 1]
-                parts = line.split("|")
-                if len(parts) >= 2:
-                    # Parse literals: [-7, -2, -10]
-                    lits_str = parts[1].strip()
-                    lits_str = lits_str.strip("[]")
-                    if lits_str:
-                        lits = [int(x.strip()) for x in lits_str.split(",")]
-                        cid_str = parts[0].strip()[1:] # Remove 'C'
-                        cid = int(cid_str)
-                        clauses.append(Clause(cid, lits))
-    
-    state = State(clauses, num_vars)
-    
-    # Apply loaded assignments
-    for var_id, val in assignments.items():
-        state.assign(var_id, val, 0)
+    def write_trigger(self, literal: int, decision_level: int):
+        """
+        Inference Engine icin BCP Input dosyasi olustur.
         
-    return state
-
-# Initialize Master Trace File
-def initialize_master_trace():
-    open(MASTER_TRACE_FILE, "w").close()
-
-    # with open(MASTER_TRACE_FILE, "w") as f:
-        # f.write("--- MASTER EXECUTION TRACE START ---\n")
-
-# Append P3-Inference Engine logs to the master trace
-def append_to_master_trace(exec_log: List[str]):
-    with open(MASTER_TRACE_FILE, "a") as f:
-        for line in exec_log:
-            f.write(line + "\n")
-        # f.write("--------------------------------------------------\n")
-
-# DECIDE format comptible with sample log
-def append_decision_to_master_trace(lit: int, dl: int):
-    with open(MASTER_TRACE_FILE, "a") as f:
-        f.write(f"[DL{dl}] DECIDE      L={lit}   |\n")
-
-# Specify the new decision assignment and current level
-def write_bcp_trigger(trigger_lit: int, dl: int):
-    """
-    The format of the trigger file:
-    TRIGGER_LITERAL: 1
-    DL: 1
-    """
-    with open(BCP_INPUT, "w") as f:
-        f.write(f"TRIGGER_LITERAL: {trigger_lit}\n")
-        f.write(f"DL: {dl}\n")
-
-# Read BCP output file generated by Inference Engine
-def read_bcp_output() -> BCPResult:
-    status = None
-    dl = 0
-    conflict_id: Optional[int] = None
-    exec_log: List[str] = []
-    var_states: Dict[int, str] = {}
-
-    section = None
-
-    with open(BCP_OUTPUT, "r") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
+        Format (proje dokumaninda belirtildigi gibi):
+            TRIGGER_LITERAL: <value>
+            DL: <value>
+        
+        Args:
+            literal: Karar literali (pozitif veya negatif integer)
+            decision_level: Mevcut decision level
+        """
+        content = f"TRIGGER_LITERAL: {literal}\nDL: {decision_level}\n"
+        
+        with open(BCP_INPUT_FILE, "w", encoding="utf-8") as f:
+            f.write(content)
+        
+        print(f"[IOManager] Wrote trigger: L={literal}, DL={decision_level}")
+    
+    def read_bcp_output(self) -> BCPResult:
+        """
+        Inference Engine tarafindan olusturulan BCP output dosyasini parse et.
+        
+        Cikarir:
+        - STATUS section: status, decision level, conflict ID
+        - BCP EXECUTION LOG section: raw log satirlari
+        - CURRENT VARIABLE STATE section: degisken atamalari
+        
+        Returns:
+            Tum parse edilmis bilgiyi iceren BCPResult
+        """
+        if not os.path.exists(BCP_OUTPUT_FILE):
+            raise FileNotFoundError(
+                f"{BCP_OUTPUT_FILE} bulunamadi. Inference engine calistirildi mi?"
+            )
+        
+        # Sonuc konteynerlerini baslat
+        status = None
+        dl = 0
+        conflict_id: Optional[int] = None
+        exec_log: List[str] = []
+        assignments: Dict[int, bool] = {}
+        unassigned_vars: List[int] = []
+        
+        with open(BCP_OUTPUT_FILE, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+            full_log = "".join(lines)
+        
+        # Hangi section'da oldugumuz takip et
+        section = None
+        
+        for line in lines:
+            line_stripped = line.strip()
+            
+            if not line_stripped:
                 continue
             
-            # Identify the section of output that will be parsed
-            if line.startswith("---"):
-                if "STATUS" in line:
+            # Section header'larini tespit et
+            if line_stripped.startswith("---"):
+                if "STATUS" in line_stripped:
                     section = "STATUS"
-                elif "BCP EXECUTION LOG" in line:
+                elif "BCP EXECUTION LOG" in line_stripped:
                     section = "LOG"
-                elif "CURRENT VARIABLE STATE" in line:
+                elif "CURRENT VARIABLE STATE" in line_stripped:
                     section = "STATE"
                 continue
-
+            
+            # Mevcut section'a gore parse et
             if section == "STATUS":
-                if line.startswith("STATUS:"):
-                    status = line.split(":")[1].strip()
-                elif line.startswith("DL:"):
-                    dl = int(line.split(":")[1].strip())
-                elif line.startswith("CONFLICT_ID:"):
-                    txt = line.split(":")[1].strip()
-                    conflict_id = None if txt == "None" else int(txt)
-
+                if line_stripped.startswith("STATUS:"):
+                    status = line_stripped.split(":", 1)[1].strip()
+                elif line_stripped.startswith("DL:"):
+                    dl = int(line_stripped.split(":", 1)[1].strip())
+                elif line_stripped.startswith("CONFLICT_ID:"):
+                    val = line_stripped.split(":", 1)[1].strip()
+                    conflict_id = None if val == "None" else int(val)
+            
             elif section == "LOG":
-                exec_log.append(line)
-
+                # Master trace icin tum log satirlarini topla
+                if line_stripped:
+                    exec_log.append(line_stripped)
+            
             elif section == "STATE":
-                left, right = line.split("|")
-                var_id = int(left.strip())
-                var_states[var_id] = right.strip()
+                # Degisken durumunu parse et: "1 | TRUE" veya "1    | UNASSIGNED"
+                if "|" in line_stripped:
+                    parts = line_stripped.split("|")
+                    var_str = parts[0].strip()
+                    state_str = parts[1].strip()
+                    
+                    if var_str.isdigit():
+                        var = int(var_str)
+                        if state_str == "UNASSIGNED":
+                            unassigned_vars.append(var)
+                        elif state_str == "TRUE":
+                            assignments[var] = True
+                        elif state_str == "FALSE":
+                            assignments[var] = False
+        
+        print(f"[IOManager] Read BCP output: status={status}, DL={dl}, conflict={conflict_id}")
+        
+        return BCPResult(
+            status=status or STATUS_CONTINUE,
+            dl=dl,
+            conflict_id=conflict_id,
+            exec_log=exec_log,
+            assignments=assignments,
+            unassigned_vars=unassigned_vars,
+            full_log=full_log
+        )
+    
+    def write_final_model(self, assignments: Dict[int, Optional[bool]], 
+                          num_vars: int, is_sat: bool):
+        """
+        Final sonuclardan model output dosyasina yaz.
+        
+        Format (Project #5 icin):
+            STATUS: SAT
+            
+            --- FINAL VARIABLE STATE ---
+            1    | TRUE
+            2    | FALSE
+            ...
+        
+        Args:
+            assignments: Degisken atamalari dict'i
+            num_vars: Toplam degisken sayisi
+            is_sat: Formul tatmin edilebilir mi
+        """
+        with open(FINAL_MODEL_FILE, "w", encoding="utf-8") as f:
+            f.write(f"STATUS: {'SAT' if is_sat else 'UNSAT'}\n")
+            f.write("\n--- FINAL VARIABLE STATE ---\n")
+            
+            if is_sat:
+                for var_id in range(1, num_vars + 1):
+                    val = assignments.get(var_id)
+                    if val is None:
+                        txt = "UNASSIGNED"
+                    else:
+                        txt = "TRUE" if val else "FALSE"
+                    f.write(f"{var_id}    | {txt}\n")
+        
+        print(f"[IOManager] Wrote final model to {FINAL_MODEL_FILE}")
+    
+    def get_initial_state_path(self) -> str:
+        """Initial state dosyasinin yolunu dondur."""
+        return INITIAL_STATE_FILE
+    
+    def get_input_cnf_path(self) -> str:
+        """Input CNF dosyasinin yolunu dondur."""
+        return INPUT_CNF_FILE
 
-    return BCPResult(status, dl, conflict_id, exec_log, var_states)
 
-# Apply P3-Inference Engine output to Search Engine state
-def apply_bcp_result_to_state(state: State, result: BCPResult):
-    for var_id, val in result.var_states.items():
-        if val == "UNASSIGNED":
-            continue
+# ==============================================================================
+# MASTER TRACE YONETIMI
+# ==============================================================================
 
-        new_val = True if val == "TRUE" else False
-
-        # Record new assignments to maintain the trail and decision level tracking
-        if state.assignments[var_id] is None:
-            state.assignments[var_id] = new_val
-            state.levels[var_id] = result.dl
-            state.trail.append((var_id, result.dl))
-        else:
-            if state.assignments[var_id] != new_val:
-                continue
-
-
-def run_inference(state: State, current_dl: int) -> str:
+class TraceLogger:
     """
-    Steps:
-    1. Write trigger file
-    2. Run Inference Engine (P3)
-    3. Read output and record execution log
-    4. Update internal State
-    5. Analyze status to determine DPLL's next step
+    Master Execution Trace dosyasini yonetir.
+    
+    Trace, DPLL arama surecindeki her olayin kronolojik kaydini tutar:
+    - DECIDE: Search engine tarafindan yapilan atamalari
+    - UNIT/ASSIGN: Inference engine tarafindan yapilan propagasyonlar
+    - CONFLICT: BCP sirasinda tespit edilen conflict'ler
+    - BACKTRACK: Backtracking olaylari
+    
+    Her decision level icin P3'ten gelen tam output kaydedilir.
     """
+    
+    def __init__(self):
+        """
+        Logger'i baslat ve mevcut trace dosyasini temizle.
+        """
+        # Yeni bir calistirmada trace dosyasini temizle
+        if os.path.exists(MASTER_TRACE_FILE):
+            os.remove(MASTER_TRACE_FILE)
+    
+    def append_full_output(self, full_log: str, dl: int):
+        """
+        P3'ten gelen tam output'u master trace'e ekle.
+        
+        Her decision level icin tam cikti kaydedilir:
+        - STATUS section
+        - BCP EXECUTION LOG section
+        - CURRENT VARIABLE STATE section
+        
+        Args:
+            full_log: P3'ten gelen tam BCP output
+            dl: Decision level
+        """
+        if full_log:
+            with open(MASTER_TRACE_FILE, "a", encoding="utf-8") as f:
+                f.write(f"\n{'='*60}\n")
+                f.write(f"DECISION LEVEL {dl}\n")
+                f.write(f"{'='*60}\n")
+                f.write(full_log)
+                if not full_log.endswith("\n"):
+                    f.write("\n")
+    
+    def append_bcp_log(self, exec_log: List[str]):
+        """
+        Sadece BCP Execution Log satirlarini ekle (geriye uyumluluk icin).
+        
+        Args:
+            exec_log: BCP output dosyasindan raw log satirlari
+        """
+        if exec_log:
+            with open(MASTER_TRACE_FILE, "a", encoding="utf-8") as f:
+                for line in exec_log:
+                    f.write(line + "\n")
+    
+    def log_decision(self, literal: int, dl: int):
+        """
+        P4'un yaptigil karar kaydet.
+        
+        Args:
+            literal: Karar literali (pozitif veya negatif)
+            dl: Decision level
+        """
+        with open(MASTER_TRACE_FILE, "a", encoding="utf-8") as f:
+            f.write(f"\n--- P4 DECISION ---\n")
+            f.write(f"TRIGGER_LITERAL: {literal}\n")
+            f.write(f"DL: {dl}\n")
+    
+    def log_backtrack(self, from_dl: int):
+        """
+        Backtrack olayini logla.
+        
+        Args:
+            from_dl: Backtrack yapilan decision level
+        """
+        with open(MASTER_TRACE_FILE, "a", encoding="utf-8") as f:
+            f.write(f"\n--- BACKTRACK from DL {from_dl} ---\n")
+    
+    def get_trace_path(self) -> str:
+        """Master trace dosyasinin yolunu dondur."""
+        return MASTER_TRACE_FILE
+    
+    def read_trace(self) -> str:
+        """Tum trace icerigini oku ve dondur."""
+        if os.path.exists(MASTER_TRACE_FILE):
+            with open(MASTER_TRACE_FILE, "r", encoding="utf-8") as f:
+                return f.read()
+        return "(Trace dosyasi bulunamadi)"
 
-    # Determine trigger literal from the most recent assignment in trail
-    if state.trail:
-        var_id, _ = state.trail[-1]
-        val = state.assignments[var_id]
-        lit = var_id if val else -var_id
-    else:
-        # DL 0: No decision made yet, initial unit clause check
-        lit = 0
 
-    dl = current_dl
+# ==============================================================================
+# BAGIMSIZ FONKSIYONLAR (geriye uyumluluk icin)
+# ==============================================================================
 
-    # Step 1
-    write_bcp_trigger(lit, dl)
-    pass
+def write_bcp_trigger(trigger_lit: int, dl: int):
+    """BCP trigger dosyasi yazmak icin bagimsiz fonksiyon."""
+    io = IOManager()
+    io.write_trigger(trigger_lit, dl)
 
-    # Step 3
-    result = read_bcp_output()
-    state.last_status = result.status
-    state.last_conflict_id = result.conflict_id
-    state.last_dl = result.dl
 
-    if result.exec_log:
-        append_to_master_trace(result.exec_log)
-
-    # Step 4
-    apply_bcp_result_to_state(state, result)
- 
-    # Step 5
-    status_raw = result.status.upper()
-    if status_raw == "SAT":
-        return "SAT"
-    if status_raw in ("UNSAT", "CONFLICT"):
-        return "CONFLICT" # Forces backtracking in search
-    return "CONTINUE"
-
-def write_final_model(state, is_sat: bool):
-    with open(FINAL_MODEL_FILE, "w") as f:
-        f.write(f"STATUS: {'SAT' if is_sat else 'UNSAT'}\n")
-        f.write("\n--- FINAL VARIABLE STATE ---\n")
-        if not is_sat:
-            return
-
-        for var_id in range(1, state.num_vars + 1):
-            v = state.assignments[var_id]
-            if v is None:
-                txt = "UNASSIGNED"
-            else:
-                txt = "TRUE" if v else "FALSE"
-            f.write(f"{var_id}    | {txt}\n")
+def read_bcp_output() -> BCPResult:
+    """BCP output okumak icin bagimsiz fonksiyon."""
+    io = IOManager()
+    return io.read_bcp_output()

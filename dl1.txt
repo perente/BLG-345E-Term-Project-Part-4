@@ -1,0 +1,15 @@
+--- STATUS ---
+STATUS: CONTINUE
+DL: 1
+CONFLICT_ID: None
+
+--- BCP EXECUTION LOG ---
+[DL1] DECIDE      L=-3   |
+[DL1] SHIFT       L=3  | C1 3->-2
+[DL1] SATISFIED         | C3
+
+--- CURRENT VARIABLE STATE ---
+1    | UNASSIGNED
+2    | UNASSIGNED
+3    | FALSE
+4    | UNASSIGNED
