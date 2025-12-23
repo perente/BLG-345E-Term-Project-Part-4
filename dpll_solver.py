@@ -1,7 +1,7 @@
 import sys
 import os
 
-from structures import State, Clause, load_initial_state, load_initial_cnf, pick_branching_variable
+from structures import State, Clause, load_initial_state, load_initial_cnf, pick_branching_variable, is_clause_satisfied
 from io_manager import (
     IOManager, TraceLogger,STATUS_SAT, STATUS_UNSAT, STATUS_CONFLICT,BCP_OUTPUT_FILE
 )
@@ -89,10 +89,20 @@ class DPLLSolver:
         chosen_literal = pick_branching_variable(self.state, self.logger, dl)
         
         if chosen_literal is None:
-            # No unassigned variable left
-            print(f"[DL {dl}] All variables assigned - SAT")
-            model = {var: val for var, val in result.assignments.items()}
-            return True, model
+            all_satisfied = True
+            for clause in self.state.clauses:
+                if not is_clause_satisfied(clause, self.state):
+                    all_satisfied = False
+                    break
+            
+            if all_satisfied:
+                print(f"[DL {dl}] All variables assigned & Clauses satisfied - SAT")
+                model = {var: val for var, val in result.assignments.items()}
+                return True, model
+            else:
+                
+                print(f"[DL {dl}] Heuristic selection failed (Dead End) - Backtracking")
+                return False, None        
         
         # Recursion - try both polarities
         next_dl = dl + 1
