@@ -1,13 +1,13 @@
 """
 io_manager.py - DPLL SAT Solver Input/Output Manager
 
-Bu modul tum dosya tabanli iletisimi yonetir:
-- Project #3'e BCP trigger dosyalari yazma
-- Project #3'ten BCP output dosyalari okuma
-- Project #5 icin master trace ve final model yazma
+This module handles all file-based communication:
+- Writing BCP trigger files to Project #3 (Inference Engine)
+- Reading BCP output files from Project #3
+- Writing master trace and final model for Project #5
 
-Tum dosya yollari inline olarak ayarlanir (ayri config.py yok).
-Tum output dosyalari mevcut calisma dizinine yazilir.
+All file paths are configured inline (no separate config.py).
+All output files are written to the current working directory.
 """
 
 import os
@@ -16,17 +16,17 @@ from dataclasses import dataclass
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Input dosyalari (okudugumuz dosyalar)
+# Input files (files we read from)
 BCP_OUTPUT_FILE = os.path.join(BASE_DIR, "bcp_output.txt")
 INITIAL_STATE_FILE = os.path.join(BASE_DIR, "initial_state.txt")
 INPUT_CNF_FILE = os.path.join(BASE_DIR, "input.cnf")
 
-# Output dosyalari (yazdigimiz dosyalar) - tumu mevcut dizinde
-BCP_INPUT_FILE = os.path.join(BASE_DIR, "bcp_input.txt")  # P3'e trigger dosyasi
+# Output files (files we write to)
+BCP_INPUT_FILE = os.path.join(BASE_DIR, "bcp_input.txt")  # Trigger file for P3
 MASTER_TRACE_FILE = os.path.join(BASE_DIR, "master_trace.txt")
 FINAL_MODEL_FILE = os.path.join(BASE_DIR, "final_model.txt")
 
-# Status sabitleri
+# Status constants
 STATUS_SAT = "SAT"
 STATUS_UNSAT = "UNSAT"
 STATUS_CONFLICT = "CONFLICT"
@@ -34,22 +34,22 @@ STATUS_CONTINUE = "CONTINUE"
 
 
 # ==============================================================================
-# VERI SINIFLARI
+# DATA CLASSES
 # ==============================================================================
 
 @dataclass
 class BCPResult:
     """
-    BCP (Boolean Constraint Propagation) calismasinin sonucu.
+    Result of BCP (Boolean Constraint Propagation) execution.
     
     Attributes:
-        status: 'SAT', 'CONTINUE', 'CONFLICT', 'UNSAT' degerlerinden biri
-        dl: BCP sonrasi decision level
-        conflict_id: Conflict clause ID (status CONFLICT ise)
-        exec_log: Master trace icin raw execution log satirlari
-        assignments: Degisken ID -> True/False eslemesi
-        unassigned_vars: Hala atanmamis degisken ID'lerinin listesi
-        full_log: Tum raw log icerigi
+        status: One of 'SAT', 'CONTINUE', 'CONFLICT', 'UNSAT'
+        dl: Decision level after BCP
+        conflict_id: Conflict clause ID (if status is CONFLICT)
+        exec_log: Raw execution log lines for master trace
+        assignments: Variable ID -> True/False mapping
+        unassigned_vars: List of variable IDs still unassigned
+        full_log: Complete raw log content
     """
     status: str
     dl: int
@@ -59,32 +59,31 @@ class BCPResult:
     unassigned_vars: List[int]
     full_log: str
 
+
 class IOManager:
     """
-    DPLL solver icin tum dosya I/O islemlerini yonetir.
+    Manages all file I/O operations for the DPLL solver.
     
-    Inference Engine ile dosyalar uzerinden iletisimi yonetir:
-    - Decision literal ve level belirten trigger input yazar
-    - Status ve degisken durumlarini iceren BCP output okur
+    Handles file-based communication with the Inference Engine:
+    - Writes trigger input specifying decision literal and level
+    - Reads BCP output containing status and variable states
     """
     
     def __init__(self):
-        """
-        IO Manager'i baslat.
-        """
+        """Initialize IO Manager."""
         pass
     
     def write_trigger(self, literal: int, decision_level: int):
         """
-        Inference Engine icin BCP Input dosyasi olustur.
+        Create BCP Input file for the Inference Engine.
         
-        Format (proje dokumaninda belirtildigi gibi):
+        Format (as specified in project documentation):
             TRIGGER_LITERAL: <value>
             DL: <value>
         
         Args:
-            literal: Karar literali (pozitif veya negatif integer)
-            decision_level: Mevcut decision level
+            literal: Decision literal (positive or negative integer)
+            decision_level: Current decision level
         """
         content = f"TRIGGER_LITERAL: {literal}\nDL: {decision_level}\n"
         
@@ -95,22 +94,22 @@ class IOManager:
     
     def read_bcp_output(self) -> BCPResult:
         """
-        Inference Engine tarafindan olusturulan BCP output dosyasini parse et.
+        Parse BCP output file created by the Inference Engine.
         
-        Cikarir:
+        Extracts:
         - STATUS section: status, decision level, conflict ID
-        - BCP EXECUTION LOG section: raw log satirlari
-        - CURRENT VARIABLE STATE section: degisken atamalari
+        - BCP EXECUTION LOG section: raw log lines
+        - CURRENT VARIABLE STATE section: variable assignments
         
         Returns:
-            Tum parse edilmis bilgiyi iceren BCPResult
+            BCPResult containing all parsed information
         """
         if not os.path.exists(BCP_OUTPUT_FILE):
             raise FileNotFoundError(
-                f"{BCP_OUTPUT_FILE} bulunamadi. Inference engine calistirildi mi?"
+                f"{BCP_OUTPUT_FILE} not found. Was the inference engine executed?"
             )
         
-        # Sonuc konteynerlerini baslat
+        # Initialize result containers
         status = None
         dl = 0
         conflict_id: Optional[int] = None
@@ -122,7 +121,7 @@ class IOManager:
             lines = f.readlines()
             full_log = "".join(lines)
         
-        # Hangi section'da oldugumuz takip et
+        # Track current section
         section = None
         
         for line in lines:
@@ -131,7 +130,7 @@ class IOManager:
             if not line_stripped:
                 continue
             
-            # Section header'larini tespit et
+            # Detect section headers
             if line_stripped.startswith("---"):
                 if "STATUS" in line_stripped:
                     section = "STATUS"
@@ -141,7 +140,7 @@ class IOManager:
                     section = "STATE"
                 continue
             
-            # Mevcut section'a gore parse et
+            # Parse based on current section
             if section == "STATUS":
                 if line_stripped.startswith("STATUS:"):
                     status = line_stripped.split(":", 1)[1].strip()
@@ -152,12 +151,12 @@ class IOManager:
                     conflict_id = None if val == "None" else int(val)
             
             elif section == "LOG":
-                # Master trace icin tum log satirlarini topla
+                # Collect all log lines for master trace
                 if line_stripped:
                     exec_log.append(line_stripped)
             
             elif section == "STATE":
-                # Degisken durumunu parse et: "1 | TRUE" veya "1    | UNASSIGNED"
+                # Parse variable state: "1 | TRUE" or "1    | UNASSIGNED"
                 if "|" in line_stripped:
                     parts = line_stripped.split("|")
                     var_str = parts[0].strip()
@@ -187,9 +186,9 @@ class IOManager:
     def write_final_model(self, assignments: Dict[int, Optional[bool]], 
                           num_vars: int, is_sat: bool):
         """
-        Final sonuclardan model output dosyasina yaz.
+        Write final results to the model output file.
         
-        Format (Project #5 icin):
+        Format (for Project #5):
             STATUS: SAT
             
             --- FINAL VARIABLE STATE ---
@@ -198,9 +197,9 @@ class IOManager:
             ...
         
         Args:
-            assignments: Degisken atamalari dict'i
-            num_vars: Toplam degisken sayisi
-            is_sat: Formul tatmin edilebilir mi
+            assignments: Dictionary of variable assignments
+            num_vars: Total number of variables
+            is_sat: Whether the formula is satisfiable
         """
         with open(FINAL_MODEL_FILE, "w", encoding="utf-8") as f:
             f.write(f"STATUS: {'SAT' if is_sat else 'UNSAT'}\n")
@@ -218,50 +217,47 @@ class IOManager:
         print(f"[IOManager] Wrote final model to {FINAL_MODEL_FILE}")
     
     def get_initial_state_path(self) -> str:
-        """Initial state dosyasinin yolunu dondur."""
+        """Return path to initial state file."""
         return INITIAL_STATE_FILE
     
     def get_input_cnf_path(self) -> str:
-        """Input CNF dosyasinin yolunu dondur."""
+        """Return path to input CNF file."""
         return INPUT_CNF_FILE
 
 
 # ==============================================================================
-# MASTER TRACE YONETIMI
+# MASTER TRACE MANAGEMENT
 # ==============================================================================
 
 class TraceLogger:
     """
-    Master Execution Trace dosyasini yonetir.
+    Manages the Master Execution Trace file.
     
-    Trace, DPLL arama surecindeki her olayin kronolojik kaydini tutar:
-    - DECIDE: Search engine tarafindan yapilan atamalari
-    - UNIT/ASSIGN: Inference engine tarafindan yapilan propagasyonlar
-    - CONFLICT: BCP sirasinda tespit edilen conflict'ler
-    - BACKTRACK: Backtracking olaylari
+    The trace is a chronological record of every event in the DPLL search:
+    - DECIDE: Assignments made by the search engine
+    - UNIT/ASSIGN: Propagations made by the inference engine
+    - CONFLICT: Conflicts detected during BCP
+    - BACKTRACK: Backtracking events
     
-    Her decision level icin P3'ten gelen tam output kaydedilir.
+    Full output from P3 is recorded for each decision level.
     """
     
     def __init__(self):
-        """
-        Logger'i baslat ve mevcut trace dosyasini temizle.
-        """
-        # Yeni bir calistirmada trace dosyasini temizle
+        """Initialize logger and clear any existing trace file."""
         if os.path.exists(MASTER_TRACE_FILE):
             os.remove(MASTER_TRACE_FILE)
     
     def append_full_output(self, full_log: str, dl: int):
         """
-        P3'ten gelen tam output'u master trace'e ekle.
+        Append full output from P3 to master trace.
         
-        Her decision level icin tam cikti kaydedilir:
+        Records complete output for each decision level:
         - STATUS section
         - BCP EXECUTION LOG section
         - CURRENT VARIABLE STATE section
         
         Args:
-            full_log: P3'ten gelen tam BCP output
+            full_log: Complete BCP output from P3
             dl: Decision level
         """
         if full_log:
@@ -275,10 +271,10 @@ class TraceLogger:
     
     def append_bcp_log(self, exec_log: List[str]):
         """
-        Sadece BCP Execution Log satirlarini ekle (geriye uyumluluk icin).
+        Append only BCP Execution Log lines (for backward compatibility).
         
         Args:
-            exec_log: BCP output dosyasindan raw log satirlari
+            exec_log: Raw log lines from BCP output file
         """
         if exec_log:
             with open(MASTER_TRACE_FILE, "a", encoding="utf-8") as f:
@@ -287,10 +283,10 @@ class TraceLogger:
     
     def log_decision(self, literal: int, dl: int):
         """
-        P4'un yaptigil karar kaydet.
+        Log decision made by P4.
         
         Args:
-            literal: Karar literali (pozitif veya negatif)
+            literal: Decision literal (positive or negative)
             dl: Decision level
         """
         with open(MASTER_TRACE_FILE, "a", encoding="utf-8") as f:
@@ -300,21 +296,21 @@ class TraceLogger:
     
     def log_backtrack(self, from_dl: int):
         """
-        Backtrack olayini logla.
+        Log backtrack event.
         
         Args:
-            from_dl: Backtrack yapilan decision level
+            from_dl: Decision level being backtracked from
         """
         with open(MASTER_TRACE_FILE, "a", encoding="utf-8") as f:
             f.write(f"\n--- BACKTRACK from DL {from_dl} ---\n")
     
     def log_pick_branching(self, chosen_literal: int, dl: int):
         """
-        pick_branching_variable kararini logla.
+        Log pick_branching_variable decision.
         
         Args:
-            chosen_literal: MOM heuristik tarafindan secilen literal
-            dl: Mevcut decision level
+            chosen_literal: Literal selected by MOM heuristic
+            dl: Current decision level
         """
         with open(MASTER_TRACE_FILE, "a", encoding="utf-8") as f:
             f.write(f"\n--- PICK BRANCHING VARIABLE ---\n")
@@ -322,28 +318,28 @@ class TraceLogger:
             f.write(f"DECISION_LEVEL: {dl}\n")
     
     def get_trace_path(self) -> str:
-        """Master trace dosyasinin yolunu dondur."""
+        """Return path to master trace file."""
         return MASTER_TRACE_FILE
     
     def read_trace(self) -> str:
-        """Tum trace icerigini oku ve dondur."""
+        """Read and return entire trace content."""
         if os.path.exists(MASTER_TRACE_FILE):
             with open(MASTER_TRACE_FILE, "r", encoding="utf-8") as f:
                 return f.read()
-        return "(Trace dosyasi bulunamadi)"
+        return "(No trace file found)"
 
 
 # ==============================================================================
-# BAGIMSIZ FONKSIYONLAR (geriye uyumluluk icin)
+# STANDALONE FUNCTIONS (for backward compatibility)
 # ==============================================================================
 
 def write_bcp_trigger(trigger_lit: int, dl: int):
-    """BCP trigger dosyasi yazmak icin bagimsiz fonksiyon."""
+    """Standalone function to write BCP trigger file."""
     io = IOManager()
     io.write_trigger(trigger_lit, dl)
 
 
 def read_bcp_output() -> BCPResult:
-    """BCP output okumak icin bagimsiz fonksiyon."""
+    """Standalone function to read BCP output."""
     io = IOManager()
     return io.read_bcp_output()

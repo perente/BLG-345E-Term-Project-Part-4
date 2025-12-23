@@ -4,12 +4,12 @@ DL: 3
 CONFLICT_ID: None
 
 --- BCP EXECUTION LOG ---
-[DL3] DECIDE      L=-1   |
-[DL3] SATISFIED         | C2
+[DL3] DECIDE      L=-2   |
+[DL3] SATISFIED         | C3
 
 --- CURRENT VARIABLE STATE ---
-1    | FALSE
-2    | TRUE
-3    | FALSE
+1    | TRUE
+2    | FALSE
+3    | TRUE
 4    | UNASSIGNED
 5    | UNASSIGNED

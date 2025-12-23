@@ -14,13 +14,14 @@ CONFLICT_ID: None
 2    | UNASSIGNED
 3    | UNASSIGNED
 4    | UNASSIGNED
+5    | UNASSIGNED
 
 --- PICK BRANCHING VARIABLE ---
-CHOSEN_LITERAL: -3
+CHOSEN_LITERAL: 1
 DECISION_LEVEL: 0
 
 --- P4 DECISION ---
-TRIGGER_LITERAL: -3
+TRIGGER_LITERAL: 1
 DL: 1
 
 ============================================================
@@ -32,39 +33,94 @@ DL: 1
 CONFLICT_ID: None
 
 --- BCP EXECUTION LOG ---
-[DL1] DECIDE      L=-3   |
-[DL1] SHIFT       L=3  | C1 3->-2
-[DL1] SATISFIED         | C3
+[DL1] DECIDE      L=1   |
+[DL1] SATISFIED         | C1
+[DL1] SATISFIED         | C4
 
 --- CURRENT VARIABLE STATE ---
-1    | UNASSIGNED
+1    | TRUE
 2    | UNASSIGNED
-3    | FALSE
+3    | UNASSIGNED
 4    | UNASSIGNED
+5    | UNASSIGNED
 
 --- PICK BRANCHING VARIABLE ---
-CHOSEN_LITERAL: -1
+CHOSEN_LITERAL: 3
 DECISION_LEVEL: 1
 
 --- P4 DECISION ---
-TRIGGER_LITERAL: -1
+TRIGGER_LITERAL: 3
 DL: 2
 
 ============================================================
 DECISION LEVEL 2
 ============================================================
 --- STATUS ---
-STATUS: SAT
+STATUS: CONTINUE
 DL: 2
 CONFLICT_ID: None
 
 --- BCP EXECUTION LOG ---
-[DL2] DECIDE      L=-1   |
-[DL2] SATISFIED         | C1
+[DL2] DECIDE      L=3   |
 [DL2] SATISFIED         | C2
 
 --- CURRENT VARIABLE STATE ---
-1    | FALSE
+1    | TRUE
 2    | UNASSIGNED
-3    | FALSE
+3    | TRUE
 4    | UNASSIGNED
+5    | UNASSIGNED
+
+--- PICK BRANCHING VARIABLE ---
+CHOSEN_LITERAL: -2
+DECISION_LEVEL: 2
+
+--- P4 DECISION ---
+TRIGGER_LITERAL: -2
+DL: 3
+
+============================================================
+DECISION LEVEL 3
+============================================================
+--- STATUS ---
+STATUS: CONTINUE
+DL: 3
+CONFLICT_ID: None
+
+--- BCP EXECUTION LOG ---
+[DL3] DECIDE      L=-2   |
+[DL3] SATISFIED         | C3
+
+--- CURRENT VARIABLE STATE ---
+1    | TRUE
+2    | FALSE
+3    | TRUE
+4    | UNASSIGNED
+5    | UNASSIGNED
+
+--- PICK BRANCHING VARIABLE ---
+CHOSEN_LITERAL: 4
+DECISION_LEVEL: 3
+
+--- P4 DECISION ---
+TRIGGER_LITERAL: 4
+DL: 4
+
+============================================================
+DECISION LEVEL 4
+============================================================
+--- STATUS ---
+STATUS: SAT
+DL: 4
+CONFLICT_ID: None
+
+--- BCP EXECUTION LOG ---
+[DL4] DECIDE      L=4   |
+[DL4] SATISFIED         | C5
+
+--- CURRENT VARIABLE STATE ---
+1    | TRUE
+2    | FALSE
+3    | TRUE
+4    | TRUE
+5    | UNASSIGNED
