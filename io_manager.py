@@ -14,11 +14,6 @@ import os
 from typing import Dict, List, Optional
 from dataclasses import dataclass
 
-# ==============================================================================
-# DOSYA YOLU KONFIGURASYONU (Inline - config.py yok)
-# ==============================================================================
-
-# Base dizin: bu dosyanin bulundugu dizin
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Input dosyalari (okudugumuz dosyalar)
@@ -63,11 +58,6 @@ class BCPResult:
     assignments: Dict[int, bool]
     unassigned_vars: List[int]
     full_log: str
-
-
-# ==============================================================================
-# IO MANAGER SINIFI
-# ==============================================================================
 
 class IOManager:
     """

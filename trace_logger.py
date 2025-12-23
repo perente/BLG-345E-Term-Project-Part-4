@@ -1,18 +1,5 @@
-"""
-trace_logger.py - Master Execution Trace Logger
-
-This module creates the "Official Execution Log" for Project #5.
-It records all events chronologically: Decisions, Propagations, and Conflicts.
-
-The Master Trace is constructed by appending the BCP Execution Log from the
-Inference Engine after each decision/propagation cycle.
-
-All output files are written to the current working directory.
-"""
-
 import os
 
-# File path for master trace - in current directory
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MASTER_TRACE_FILE = os.path.join(BASE_DIR, "master_trace.txt")
 

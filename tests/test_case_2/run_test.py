@@ -1,19 +1,3 @@
-"""
-run_test.py - Test Case 2: 4 Variables, 3 Clauses
-
-Formula:
-  C1: (-x1 v -x2 v x3)
-  C2: (-x1 v x2 v x4)
-  C3: (-x3 v -x4)
-
-Beklenen MOM kararlari:
-  DL0: L=-3 (C3 minimum boyutlu, -3 secilir)
-  DL1: L=-1 (C1 minimum boyutlu, -1 secilir)
-  DL2: SAT!
-
-Beklenen Model: var1=FALSE, var3=FALSE
-"""
-
 import os
 import sys
 import shutil
@@ -26,13 +10,6 @@ from structures import State, Clause, pick_branching_variable
 
 
 def verify_mom_decisions():
-    """MOM heuristic dogrulama."""
-    
-    print("=" * 70)
-    print("  TEST CASE 2: MOM Heuristic Dogrulama")
-    print("  Formula: (-x1 v -x2 v x3) ^ (-x1 v x2 v x4) ^ (-x3 v -x4)")
-    print("=" * 70)
-    
     clauses = [
         Clause(1, [-1, -2, 3]),   # C1
         Clause(2, [-1, 2, 4]),    # C2
@@ -54,8 +31,8 @@ def verify_mom_decisions():
         status = "PASSED" if passed else "FAILED"
         
         print(f"\nDL{dl}: {description}")
-        print(f"  Beklenen: L={expected_literal}")
-        print(f"  Gerceklesen: L={actual_literal}")
+        print(f"  Expected: L={expected_literal}")
+        print(f"  Actual: L={actual_literal}")
         print(f"  {status}")
         
         if not passed:
@@ -71,32 +48,19 @@ def verify_mom_decisions():
     sat_passed = (final_decision is None)
     
     print(f"\nFinal (SAT Check):")
-    print(f"  MOM donusu: {final_decision}")
-    print(f"  Beklenen: None (tum clause'lar satisfied)")
+    print(f"  MOM: {final_decision}")
+    print(f"  Expected: None")
     print(f"  {'PASSED' if sat_passed else 'FAILED'}")
     
     if not sat_passed:
         all_passed = False
     
-    print("\n" + "=" * 70)
-    if all_passed:
-        print("  TUM TESTLER GECTI!")
-    else:
-        print("  BAZI TESTLER BASARISIZ!")
-    print("=" * 70)
-    
     return all_passed
 
 
 def run_solver_test():
-    """DPLL solver testi."""
-    print("\n" + "=" * 70)
-    print("  DPLL SOLVER TESTI")
-    print("=" * 70)
-    
     files_to_copy = ["initial_state.txt", "dl0.txt", "dl1.txt", "dl2.txt"]
     
-    print("\n[1] Test dosyalari kopyalaniyor...")
     for fname in files_to_copy:
         src = os.path.join(SCRIPT_DIR, fname)
         dst = os.path.join(PROJECT_ROOT, fname)
@@ -104,7 +68,6 @@ def run_solver_test():
             shutil.copy(src, dst)
             print(f"    {fname}")
     
-    print("\n[2] DPLL Solver calistiriliyor...")
     os.chdir(PROJECT_ROOT)
     
     from dpll_solver import DPLLSolverAutomatic
@@ -112,7 +75,6 @@ def run_solver_test():
     solver = DPLLSolverAutomatic()
     success, model = solver.solve()
     
-    print("\n[3] Sonuc:")
     if success:
         print("    STATUS: SAT")
         print("    Model:", model)
@@ -121,10 +83,10 @@ def run_solver_test():
         correct = all(model.get(v) == expected[v] for v in expected)
         
         if correct:
-            print("    Model dogrulandi!")
+            print("    Model verified")
     else:
         print("    STATUS: UNSAT")
-        print("    HATA: Bu formul SAT olmali!")
+        print("    ERROR")
         return False
     
     return success
@@ -138,16 +100,9 @@ if __name__ == "__main__":
     try:
         solver_passed = run_solver_test()
     except Exception as e:
-        print(f"\n[HATA] {e}")
+        print(f"\nError, solver test failed: {e}")
         import traceback
         traceback.print_exc()
         solver_passed = False
-    
-    print("\n" + "=" * 70)
-    print("  TEST OZETI")
-    print("=" * 70)
-    print(f"  MOM Heuristic Testi: {'PASSED' if mom_passed else 'FAILED'}")
-    print(f"  Solver Testi: {'PASSED' if solver_passed else 'FAILED'}")
-    print("=" * 70)
     
     sys.exit(0 if (mom_passed and solver_passed) else 1)

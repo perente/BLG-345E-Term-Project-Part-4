@@ -243,11 +243,6 @@ def count_unassigned_literals(clause: Clause, state: State) -> int:
             count += 1
     return count
 
-
-# ==============================================================================
-# INITIAL STATE PARSING (Project #2 output formatinda)
-# ==============================================================================
-
 def load_initial_state(path: str) -> State:
     """
     Project #2 formatindaki initial state dosyasini parse et.

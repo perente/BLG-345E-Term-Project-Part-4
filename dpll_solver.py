@@ -1,69 +1,36 @@
-"""
-dpll_solver.py - DPLL SAT Solver Search Engine (Project #4)
-
-Bu dosya DPLL tabanli SAT solver'in ana giris noktasidir.
-Sistematik olarak degisken atama uzayini arastiran temel DPLL
-recursive arama algoritmasini uygular.
-
-Ana Bilesenler:
-- DPLLSolver: Recursive DPLL algoritmasi ile ana solver sinifi
-- MOM Heuristic: Karar degiskeni secimi (structures.py'de)
-- TraceLogger: Project #5 entegrasyonu icin master execution trace
-- IOManager: Inference Engine (Project #3) ile dosya tabanli iletisim
-
-Kullanim:
-    python dpll_solver.py                    # Varsayilan dosyalarla calistir
-    python dpll_solver.py --initial <path>   # Ozel initial state dosyasi ile calistir
-"""
-
 import sys
 import os
 
-# Proje modullerini import et
 from structures import State, Clause, load_initial_state, load_initial_cnf, pick_branching_variable
 from io_manager import (
-    IOManager, TraceLogger, BCPResult,
-    STATUS_SAT, STATUS_UNSAT, STATUS_CONFLICT, STATUS_CONTINUE,
-    BCP_OUTPUT_FILE
+    IOManager, TraceLogger,STATUS_SAT, STATUS_UNSAT, STATUS_CONFLICT,BCP_OUTPUT_FILE
 )
 import backtracker
 
 
 class DPLLSolver:
     """
-    DPLL SAT Solver - Davis-Putnam-Logemann-Loveland algoritmasini uygular.
+    DPLL SAT Solver 
     
-    Solver su sekilde calisir:
-    1. Inference Engine'i calistirarak BCP (Boolean Constraint Propagation) yap
-    2. Sonucu kontrol et:
-       - SAT: Basari ile model dondur
-       - CONFLICT/UNSAT: Basarisizlik dondur (backtracking tetiklenir)
-       - CONTINUE: Bir degisken sec ve dallan
-    3. MOM heuristic kullanarak karar yap
-    4. Her iki polarity icin recursive olarak dene (once tercih edilen, sonra tersi)
-    
-    Attributes:
-        io: Inference Engine ile dosya I/O icin IOManager
-        logger: Execution trace kaydi icin TraceLogger
-        state: Atamalar ve clause'larla mevcut solver durumu
+    1) Read BCP output produced by Inference Engine
+    2) Check the status, if status:
+       - SAT: model found, return success
+       - CONFLICT/UNSAT: return failure, trigger backtracking
+       - CONTINUE: Choose variable to branch
+    3) Use MOM heuristic for decision 
+    4) Try both polarities recursively
     """
     
+    # Initialize the DPLL solver
     def __init__(self, initial_state_path: str = None):
-        """
-        DPLL solver'i baslat.
-        
-        Args:
-            initial_state_path: Initial state dosyasinin yolu. 
-                               None ise varsayilan konum kullanilir.
-        """
         self.io = IOManager()
         self.logger = TraceLogger()
         
-        # Belirtilen yoldan veya varsayilandan initial state yukle
+        # Load initial state from the given path or default
         if initial_state_path is None:
             initial_state_path = self.io.get_initial_state_path()
         
-        # Dosya uzantisina gore yukle
+        # Load file depending on its extension
         if initial_state_path.endswith(".cnf"):
             self.state = load_initial_cnf(initial_state_path)
         else:
@@ -71,147 +38,105 @@ class DPLLSolver:
         
         self.initial_state_path = initial_state_path
         
-        print(f"[DPLLSolver] Initial state yuklendi: {initial_state_path}")
-        print(f"[DPLLSolver] Degiskenler: {self.state.num_vars}, Clause'lar: {len(self.state.clauses)}")
+        print(f"Initial state loaded: {initial_state_path}")
+        print(f"Variables: {self.state.num_vars}, Clauses: {len(self.state.clauses)}")
     
     def solve(self):
-        """
-        Public giris noktasi. Decision Level 0'dan DPLL recursion'u baslatir.
-        
-        Returns:
-            Tuple[bool, dict]: (success, model)
-            - success: SAT ise True, UNSAT ise False
-            - model: SAT ise degisken atamalari dict'i, UNSAT ise None
-        """
-        print("\n" + "=" * 60)
-        print("  DPLL ARAMA BASLIYOR")
-        print("=" * 60)
-        
-        # Decision Level 0'da baslat
-        # Oncelikle DL 0 icin BCP output'u oku (initial unit propagation)
-        # Not: P3 zaten DL 0 icin bcp_output.txt olusturmus olmali
+        # Start at decision level 0
+        # Read BCP output for initial unit propagation
         
         result, model = self._dpll_recursive(dl=0)
         
         return result, model
     
+    # Main recursive DPLL function
     def _dpll_recursive(self, dl: int):
-        """
-        Ana recursive DPLL fonksiyonu.
-        
-        Algoritma akisi:
-        1. Inference Engine'den BCP sonucunu oku
-        2. Status'u kontrol et:
-           - SAT: Model ile basari dondur
-           - CONFLICT/UNSAT: Basarisizlik dondur (backtracking tetiklenir)
-           - CONTINUE: Degisken sec ve dallan
-        3. MOM heuristic kullanarak karar yap
-        4. Her iki polarity icin recursive dene
-        
-        Args:
-            dl: Mevcut decision level
-            
-        Returns:
-            Tuple[bool, dict]: (success, model)
-        """
-        # Adim 1: BCP output'u oku
+        # Read BCP output
         try:
             result = self.io.read_bcp_output()
         except FileNotFoundError as e:
             print(f"[DL {dl}] HATA: {e}")
             return False, None
         
-        # P3'ten gelen tam output'u master trace'e kaydet
+        # Save output from P3 to master trace
         self.logger.append_full_output(result.full_log, dl)
         
         status = result.status
         
         print(f"\n[DL {dl}] Status: {status}")
         if result.assignments:
-            print(f"[DL {dl}] Atamalar: {result.assignments}")
+            print(f"[DL {dl}] Assignments: {result.assignments}")
         if result.unassigned_vars:
-            print(f"[DL {dl}] Atanmamis: {result.unassigned_vars}")
+            print(f"[DL {dl}] Unassigned: {result.unassigned_vars}")
         
-        # Adim 2: Status kontrol et (Base Cases)
+        # Check the status
         if status == STATUS_SAT:
-            print(f"[DL {dl}] *** SATISFIABLE - Cozum bulundu! ***")
+            print(f"[DL {dl}] *** SATISFIABLE ***")
             model = {var: val for var, val in result.assignments.items()}
             return True, model
         
         if status in (STATUS_UNSAT, STATUS_CONFLICT):
-            print(f"[DL {dl}] Conflict tespit edildi - Backtracking")
+            print(f"[DL {dl}] Conflict detected, do backtrack")
             return False, None
         
-        # Adim 3: Status CONTINUE - Karar yap
-        # Heuristic icin state'i guncelle
+        # IF status CONTINUE - Make decision
         for var in result.unassigned_vars:
             self.state.assignments[var] = None
         for var, val in result.assignments.items():
             self.state.assignments[var] = val
         
-        # MOM heuristic kullanarak branching literali sec
-        # Bu artik polarity ile birlikte literal donduruyor
+        # Choose literal using MOM
         chosen_literal = pick_branching_variable(self.state)
         
         if chosen_literal is None:
-            # Atanmamis degisken kalmadi ama status SAT degildi
-            # Bu tum clause'larin tatmin edildigi anlamina gelir
-            print(f"[DL {dl}] Tum degiskenler atandi - SAT")
+            # No unassigned variable left
+            print(f"[DL {dl}] All variables assigned - SAT")
             model = {var: val for var, val in result.assignments.items()}
             return True, model
         
-        # Adim 4: Recursion - Her iki polarity'yi dene
+        # Recursion - try both polarities
         next_dl = dl + 1
         chosen_var = abs(chosen_literal)
-        chosen_value = chosen_literal > 0  # Pozitif literal -> True, Negatif -> False
+        # positive literal -> True, negative literal -> False
+        chosen_value = chosen_literal > 0  
         
-        # Dallanma 1: Heuristic'in sectigi polarity
-        print(f"[DL {dl}] Dallanma: degisken {chosen_var} -> "
+        # Heuristic-chosen polarity
+        print(f"[DL {dl}] Branch: variable {chosen_var} -> "
               f"{'TRUE' if chosen_value else 'FALSE'} (L={chosen_literal}) DL {next_dl}'de")
         
-        # State'i guncelle ve trigger yaz
+        # Update state and write trigger
         self.state.assign(chosen_var, chosen_value, next_dl)
         self.io.write_trigger(chosen_literal, next_dl)
+
         
-        # SIMDI P3'UN CALISMASI BEKLENIYOR
-        # Test icin kullanici burada mock bcp_output.txt hazirlamali
-        print(f"[BEKLE] P3 calistirildiktan sonra devam etmek icin bcp_output.txt'yi guncelleyin...")
-        
-        input(">>> P3 calistiktan sonra Enter'a basin...")
-        
-        # Recursive cagri
+        # Recurse
         success, model = self._dpll_recursive(next_dl)
         if success:
             return True, model
         
-        # Dallanma 1 basarisiz - Backtrack
-        print(f"[DL {dl}] Dallanma 1 basarisiz - Backtracking DL {next_dl}'den")
+        # Branch failed, do backtrack
+        print(f"[DL {dl}] Branch failed - Backtracking from DL {next_dl}")
         backtracker.undo_level(self.state, next_dl)
         self.logger.log_backtrack(next_dl)
         
-        # Dallanma 2: Ters polarity
+        # New branch with opposite polarity
         negated_literal = -chosen_literal
         negated_value = not chosen_value
         
-        print(f"[DL {dl}] Dallanma: degisken {chosen_var} -> "
-              f"{'TRUE' if negated_value else 'FALSE'} (L={negated_literal}) DL {next_dl}'de")
+        print(f"[DL {dl}] Branch: variable {chosen_var} -> "
+              f"{'TRUE' if negated_value else 'FALSE'} (L={negated_literal}) at DL {next_dl}")
         
-        # State'i guncelle ve trigger yaz
+        # Update state and write trigger
         self.state.assign(chosen_var, negated_value, next_dl)
         self.io.write_trigger(negated_literal, next_dl)
         
-        # SIMDI P3'UN CALISMASI BEKLENIYOR
-        print(f"[BEKLE] P3 calistirildiktan sonra devam etmek icin bcp_output.txt'yi guncelleyin...")
-        
-        input(">>> P3 calistiktan sonra Enter'a basin...")
-        
-        # Recursive cagri
+        # Recurse
         success, model = self._dpll_recursive(next_dl)
         if success:
             return True, model
         
-        # Her iki dallanma da basarisiz - Daha fazla backtrack
-        print(f"[DL {dl}] Her iki dallanma da basarisiz - Backtracking")
+        # Both branches failed, backtrack further
+        print(f"[DL {dl}] Both branches failed - Backtracking")
         backtracker.undo_level(self.state, next_dl)
         
         return False, None
@@ -219,10 +144,9 @@ class DPLLSolver:
 
 class DPLLSolverAutomatic(DPLLSolver):
     """
-    Otomatik modda calisan DPLL Solver.
+    Automatic-mode DPLL solver
     
-    Mock dosyalar kullanarak P3 simulasyonu yapar.
-    Her decision level icin dl<N>.txt dosyasini bcp_output.txt'ye kopyalar.
+    Simulates P3 by using mock files
     """
     
     def __init__(self, initial_state_path: str = None):
@@ -230,12 +154,11 @@ class DPLLSolverAutomatic(DPLLSolver):
         self.decision_count = 0
     
     def _copy_mock_response(self, dl: int):
-        """Mock response dosyasini bcp_output.txt'ye kopyala."""
         import shutil
         
         base_dir = os.path.dirname(os.path.abspath(__file__))
         
-        # Farkli dosya isim kaliplarini dene
+        # Try different file namings
         patterns = [
             f"dl{dl}.txt",
             f"dl{dl}_response.txt",
@@ -246,10 +169,8 @@ class DPLLSolverAutomatic(DPLLSolver):
             src = os.path.join(base_dir, pattern)
             if os.path.exists(src):
                 shutil.copy(src, BCP_OUTPUT_FILE)
-                print(f"[Mock] {pattern} -> bcp_output.txt kopyalandi")
                 return True
         
-        print(f"[Mock] UYARI: DL {dl} icin response dosyasi bulunamadi")
         return False
     
     def _dpll_recursive(self, dl: int):
@@ -257,17 +178,17 @@ class DPLLSolverAutomatic(DPLLSolver):
         Otomatik mod icin recursive DPLL.
         Mock dosyalar kullanir.
         """
-        # Mock response'u kopyala
+        # Copy mock response 
         self._copy_mock_response(dl)
         
-        # BCP output'u oku
+        # Read BCP output
         try:
             result = self.io.read_bcp_output()
         except FileNotFoundError as e:
             print(f"[DL {dl}] HATA: {e}")
             return False, None
         
-        # P3'ten gelen tam output'u master trace'e kaydet
+        # Store full output from P3 into the master trace
         self.logger.append_full_output(result.full_log, dl)
         
         status = result.status
@@ -284,39 +205,39 @@ class DPLLSolverAutomatic(DPLLSolver):
             print(f"[DL {dl}] Conflict - Backtracking")
             return False, None
         
-        # Heuristic icin state guncelle
+        # Update state for heuristic
         for var in result.unassigned_vars:
             self.state.assignments[var] = None
         for var, val in result.assignments.items():
             self.state.assignments[var] = val
         
-        # MOM ile literal sec
+        # Pick literal via MOM heuristic
         chosen_literal = pick_branching_variable(self.state)
         
         if chosen_literal is None:
-            print(f"[DL {dl}] Tum degiskenler atandi - SAT")
+            print(f"[DL {dl}] All variables assigned - SAT")
             model = {var: val for var, val in result.assignments.items()}
             return True, model
         
-        # Dallanma
+        # Branching
         next_dl = dl + 1
         chosen_var = abs(chosen_literal)
         chosen_value = chosen_literal > 0
         
         print(f"[DL {dl}] Branching: var {chosen_var} = {'T' if chosen_value else 'F'} (L={chosen_literal})")
         
-        # P4 kararini logla
+        # Log decision
         self.logger.log_decision(chosen_literal, next_dl)
         
         self.state.assign(chosen_var, chosen_value, next_dl)
         self.io.write_trigger(chosen_literal, next_dl)
         
-        # Recursive
+        # Recurse
         success, model = self._dpll_recursive(next_dl)
         if success:
             return True, model
         
-        # Backtrack ve ters polarity dene
+        # Backtrack and try opposite polarity
         print(f"[DL {dl}] Backtracking from DL {next_dl}")
         backtracker.undo_level(self.state, next_dl)
         self.logger.log_backtrack(next_dl)
@@ -326,7 +247,6 @@ class DPLLSolverAutomatic(DPLLSolver):
         
         print(f"[DL {dl}] Trying opposite: var {chosen_var} = {'T' if negated_value else 'F'} (L={negated_literal})")
         
-        # P4 kararini logla
         self.logger.log_decision(negated_literal, next_dl)
         
         self.state.assign(chosen_var, negated_value, next_dl)
@@ -339,26 +259,7 @@ class DPLLSolverAutomatic(DPLLSolver):
         backtracker.undo_level(self.state, next_dl)
         return False, None
 
-
-# ==============================================================================
-# ANA CALISTIRMA
-# ==============================================================================
-
 def main():
-    """
-    DPLL SAT Solver icin ana giris noktasi.
-    
-    Kullanim:
-        python dpll_solver.py                    # Interactive mod (P3 bekler)
-        python dpll_solver.py --auto             # Otomatik mod (mock dosyalar)
-        python dpll_solver.py --initial <path>   # Ozel initial state
-    """
-    print("=" * 70)
-    print("  DPLL SAT Solver - Search Engine (Project #4)")
-    print("  MOM Heuristic ile (Polarity Bazli Tie-Breaking)")
-    print("=" * 70)
-    
-    # Komut satiri argumanlarini parse et
     initial_state_path = None
     auto_mode = False
     args = sys.argv[1:]
@@ -374,49 +275,44 @@ def main():
         else:
             i += 1
     
-    # Solver'i baslat ve calistir
+    # Start solver
     try:
         if auto_mode:
-            print("[Mod] Otomatik mod - Mock dosyalar kullanilacak")
+            print("Automatic mode - mock files will be used")
             solver = DPLLSolverAutomatic(initial_state_path)
         else:
-            print("[Mod] Interactive mod - Her adimda P3 beklenecek")
+            print("Interactive mode - waiting for P3 at each step")
             solver = DPLLSolver(initial_state_path)
         
         success, model = solver.solve()
         
-        # Final sonucu yazdir
-        print("\n" + "=" * 70)
+        # Print final result
         if success:
-            print(">>> SONUC: SATISFIABLE <<<")
-            print("\nFinal Atama:")
+            print(">>> RESULT: SATISFIABLE <<<")
+            print("\nFinal Assignment:")
             if model:
                 for var in sorted(model.keys()):
                     val = model[var]
-                    print(f"  Degisken {var}: {'TRUE' if val else 'FALSE'}")
+                    print(f"  Variable {var}: {'TRUE' if val else 'FALSE'}")
         else:
-            print(">>> SONUC: UNSATISFIABLE <<<")
+            print(">>> RESULT: UNSATISFIABLE <<<")
         
-        # Final modeli dosyaya yaz
+        # Write final model
         solver.io.write_final_model(
             model if model else {},
             solver.state.num_vars,
             success
         )
         
-        # Trace bilgisi
+        # Trace output
         print(f"\nMaster Trace: {solver.logger.get_trace_path()}")
-        print("\n--- MASTER TRACE ICERIGI ---")
+        print("\n--- MASTER TRACE CONTENT ---")
         print(solver.logger.read_trace())
         
     except FileNotFoundError as e:
-        print(f"[HATA] {e}")
-        print("\nAsagidaki dosyalarin mevcut oldugundan emin olun:")
-        print("  - initial_state.txt (Initial formula state)")
-        print("  - bcp_output.txt (P3'ten gelen BCP output)")
         sys.exit(1)
     except Exception as e:
-        print(f"[HATA] Beklenmeyen hata: {e}")
+        print(f"Unexpected error: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)
