@@ -1,11 +1,3 @@
-"""
-backtracker.py - DPLL Solver icin State Backtracking
-
-Bu modul DPLL arama icin backtracking mekanizmasini saglar.
-Bir conflict tespit edildiginde, solver hedef decision level'dan
-itibaren yapilmis tum atamalari geri almalidir.
-"""
-
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -14,43 +6,31 @@ if TYPE_CHECKING:
 
 def undo_level(state: "State", target_dl: int):
     """
-    Hedef decision level ve uzerinde yapilmis tum atamalari geri al.
+    Undo all assignments made at and above the target decision level
     
-    Bu fonksiyon conflict sonrasi backtracking yaparken cagirilir.
-    target_dl ve uzerinde atanmis tum degiskenler unassigned (None) yapilir.
-    Trail, target_dl'den hemen onceki duruma geri sarilir.
-    
-    Args:
-        state: Degistirilecek solver state'i
-        target_dl: Backtrack yapilacak decision level
-                   target_dl ve daha yuksek seviyelerdeki tum atamalar geri alinir
+    - Called during backtracking after a conflict
+    - All variables assigned at decision levels >= target_dl are
+      set to unassigned (None)
     """
     while state.trail:
-        # En son atamaliya bak
+        # Look at most recent assignment
         var_id, last_dl = state.trail[-1]
         
-        # Bu atama hedef seviyeden once yapildiysa dur
+        # Stop if this assignment was made before target_dl
         if last_dl < target_dl:
             break
         
-        # Trail'den cikar (stack pop)
+        # Stack pop-Remove from trail 
         state.trail.pop()
         
-        # Degiskeni unassigned yap
+        # Unassign variable
         state.assignments[var_id] = None
         
-        # Decision level'ini sifirla
+        # Reset its decision level
         state.levels[var_id] = 0
 
-
-def get_current_dl(state: "State") -> int:
-    """
-    Trail'den mevcut decision level'i al.
-    
-    Returns:
-        En son atamanin decision level'i,
-        veya trail bossa 0.
-    """
+# Get current decision level from trail
+def get_current_dl(state: "State"):
     if state.trail:
         return state.trail[-1][1]
     return 0
