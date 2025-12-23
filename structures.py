@@ -103,18 +103,26 @@ class State:
 # Polarity bazli tie-breaking ile
 # ==============================================================================
 
-def pick_branching_variable(state: State) -> Optional[int]:
+def pick_branching_variable(state: State, trace_logger=None, dl: int = 0) -> Optional[int]:
     """
     MOM heuristic kullanarak karar degiskeni sec.
     Polarity bazli tie-breaking uygulanir.
     
     Args:
         state: Mevcut solver durumu
+        trace_logger: Opsiyonel TraceLogger nesnesi (seçimi loglamak için)
+        dl: Mevcut decision level
         
     Returns:
         Branch yapilacak literal (pozitif veya negatif), veya None
     """
-    return mom_heuristic(state)
+    chosen_literal = mom_heuristic(state)
+    
+    # Seçimi master_trace.txt'ye kaydet (trace_logger verilmişse)
+    if trace_logger is not None and chosen_literal is not None:
+        trace_logger.log_pick_branching(chosen_literal, dl)
+    
+    return chosen_literal
 
 
 def mom_heuristic(state: State) -> Optional[int]:

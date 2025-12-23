@@ -86,7 +86,7 @@ class DPLLSolver:
             self.state.assignments[var] = val
         
         # Choose literal using MOM
-        chosen_literal = pick_branching_variable(self.state)
+        chosen_literal = pick_branching_variable(self.state, self.logger, dl)
         
         if chosen_literal is None:
             # No unassigned variable left
@@ -212,7 +212,7 @@ class DPLLSolverAutomatic(DPLLSolver):
             self.state.assignments[var] = val
         
         # Pick literal via MOM heuristic
-        chosen_literal = pick_branching_variable(self.state)
+        chosen_literal = pick_branching_variable(self.state, self.logger, dl)
         
         if chosen_literal is None:
             print(f"[DL {dl}] All variables assigned - SAT")

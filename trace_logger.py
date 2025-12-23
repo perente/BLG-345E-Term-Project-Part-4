@@ -82,6 +82,17 @@ class TraceLogger:
         with open(MASTER_TRACE_FILE, "a", encoding="utf-8") as f:
             f.write(text)
     
+    def log_pick_branching(self, chosen_literal: int, dl: int):
+        """
+        Log the pick_branching_variable decision.
+        
+        Args:
+            chosen_literal: The literal chosen by MOM heuristic
+            dl: Current decision level
+        """
+        log_entry = f"\n--- PICK BRANCHING VARIABLE ---\nCHOSEN_LITERAL: {chosen_literal}\nDECISION_LEVEL: {dl}\n"
+        self._append(log_entry)
+    
     def get_trace_path(self) -> str:
         """
         Get the path to the master trace file.

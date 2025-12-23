@@ -308,6 +308,19 @@ class TraceLogger:
         with open(MASTER_TRACE_FILE, "a", encoding="utf-8") as f:
             f.write(f"\n--- BACKTRACK from DL {from_dl} ---\n")
     
+    def log_pick_branching(self, chosen_literal: int, dl: int):
+        """
+        pick_branching_variable kararini logla.
+        
+        Args:
+            chosen_literal: MOM heuristik tarafindan secilen literal
+            dl: Mevcut decision level
+        """
+        with open(MASTER_TRACE_FILE, "a", encoding="utf-8") as f:
+            f.write(f"\n--- PICK BRANCHING VARIABLE ---\n")
+            f.write(f"CHOSEN_LITERAL: {chosen_literal}\n")
+            f.write(f"DECISION_LEVEL: {dl}\n")
+    
     def get_trace_path(self) -> str:
         """Master trace dosyasinin yolunu dondur."""
         return MASTER_TRACE_FILE
